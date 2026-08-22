@@ -15,30 +15,36 @@ body,
 body {
   margin: 0;
   background-color: #eef1f6;
-  /* Faint engineering-paper grid: the working surface this tracker lives on. */
   background-image:
-    linear-gradient(to right, rgba(18, 38, 63, 0.045) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(18, 38, 63, 0.045) 1px, transparent 1px);
-  background-size: 22px 22px;
+    radial-gradient(720px 420px at 4% -6%, rgba(79, 70, 229, 0.10), transparent 60%),
+    radial-gradient(640px 380px at 100% 0%, rgba(14, 124, 102, 0.08), transparent 55%),
+    linear-gradient(to right, rgba(18, 38, 63, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(18, 38, 63, 0.04) 1px, transparent 1px);
+  background-size: auto, auto, 22px 22px, 22px 22px;
+  background-attachment: fixed, fixed, scroll, scroll;
   color: #12263f;
-  font-family: Inter, system-ui, sans-serif;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
 @layer components {
   .card {
-    @apply bg-surface border border-rule rounded-lg;
+    @apply bg-surface border border-rule rounded-xl shadow-card transition-shadow duration-200;
+  }
+  .card-hover {
+    @apply hover:shadow-card-hover hover:border-brand/30;
   }
   .eyebrow {
     @apply font-mono text-[10px] uppercase tracking-[0.16em] text-muted;
   }
   .btn {
-    @apply px-3 py-1.5 rounded-md border border-rule bg-surface text-sm font-medium
-           transition-colors hover:bg-ground focus-visible:outline-none
-           focus-visible:ring-2 focus-visible:ring-ink/40;
+    @apply px-3 py-1.5 rounded-lg border border-rule bg-surface text-sm font-medium
+           transition-all duration-150 hover:bg-ground hover:-translate-y-px
+           active:translate-y-0 focus-visible:outline-none
+           focus-visible:ring-2 focus-visible:ring-brand/50;
   }
   .btn-primary {
-    @apply bg-ink text-white border-ink hover:bg-ink/90;
+    @apply bg-brand text-white border-brand shadow-glow hover:bg-brand-deep hover:border-brand-deep;
   }
   .btn-ac {
     @apply bg-ac text-white border-ac hover:bg-ac/90;
@@ -47,8 +53,11 @@ body {
     @apply bg-miss text-white border-miss hover:bg-miss/90;
   }
   .field {
-    @apply border border-rule rounded-md px-2 py-1.5 text-sm bg-surface
-           focus:outline-none focus:ring-2 focus:ring-ink/30;
+    @apply border border-rule rounded-lg px-2 py-1.5 text-sm bg-surface
+           focus:outline-none focus:ring-2 focus:ring-brand/30;
+  }
+  .heading-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-ink via-brand-deep to-brand;
   }
 }
 

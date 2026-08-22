@@ -6,6 +6,7 @@ import { exportJSON, importJSON, loadLocal, saveLocal } from './lib/storage'
 import { cloudEnabled, fetchProgress, pushProgress, supabase } from './lib/supabase'
 import Header from './components/Header'
 import { ConsistencyGrid, StatsBar } from './components/Overview'
+import Analytics from './components/Analytics'
 import DayPanel from './components/DayPanel'
 import { CalendarView, ContestPanel, TopicProgress } from './components/Panels'
 
@@ -26,6 +27,7 @@ export default function App() {
   const [userId, setUserId] = useState<string | null>(null)
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const [syncState, setSyncState] = useState<'idle' | 'saving' | 'error'>('idle')
+  const [generatingPdf, setGeneratingPdf] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   /* ---- auth session ---- */
@@ -111,13 +113,25 @@ export default function App() {
     return out
   }, [progress, todayIso])
 
-  const download = () => {
+  const downloadBackup = () => {
     const blob = new Blob([exportJSON(progress)], { type: 'application/json' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
     a.download = `dsa140-progress-${todayIso}.json`
     a.click()
     URL.revokeObjectURL(a.href)
+  }
+
+  const downloadPdfReport = async () => {
+    setGeneratingPdf(true)
+    try {
+      // jsPDF + autotable are only needed here, so they're code-split into a
+      // chunk that loads on demand instead of bloating the initial page load.
+      const { generatePdfReport } = await import('./lib/pdfReport')
+      generatePdfReport(SCHEDULE, progress, todayIso, { studentName: userEmail ?? undefined })
+    } finally {
+      setGeneratingPdf(false)
+    }
   }
 
   const upload = async (f: File) => {
@@ -146,6 +160,8 @@ export default function App() {
         )}
 
         <StatsBar schedule={SCHEDULE} progress={progress} todayIso={todayIso} />
+
+        <Analytics schedule={SCHEDULE} progress={progress} todayIso={todayIso} />
 
         <ConsistencyGrid
           schedule={SCHEDULE}
@@ -210,12 +226,23 @@ export default function App() {
 
             <div className="card p-3">
               <span className="eyebrow">your data</span>
-              <div className="flex gap-2 mt-2">
-                <button className="btn flex-1" onClick={download}>
-                  Export
+              <button
+                className="btn btn-primary w-full mt-2 justify-center flex items-center gap-2"
+                onClick={downloadPdfReport}
+                disabled={generatingPdf}
+              >
+                {generatingPdf ? 'Generating report…' : 'Export PDF report ↓'}
+              </button>
+              <p className="text-[11px] text-muted mt-1.5">
+                A detailed, printable report — every stat, weekly summary, topic coverage, and
+                the full 140-day log.
+              </p>
+              <div className="flex gap-2 mt-3 pt-3 border-t border-rule">
+                <button className="btn flex-1 text-xs" onClick={downloadBackup}>
+                  Backup (JSON)
                 </button>
-                <button className="btn flex-1" onClick={() => fileRef.current?.click()}>
-                  Import
+                <button className="btn flex-1 text-xs" onClick={() => fileRef.current?.click()}>
+                  Restore
                 </button>
                 <input
                   ref={fileRef}
