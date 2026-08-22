@@ -8,7 +8,11 @@ import Header from './components/Header'
 import { ConsistencyGrid, StatsBar } from './components/Overview'
 import Analytics from './components/Analytics'
 import DayPanel from './components/DayPanel'
+import Tabs from './components/Tabs'
+import ResourceLibrary, { DayResources } from './components/Resources'
 import { CalendarView, ContestPanel, TopicProgress } from './components/Panels'
+
+type TabId = 'today' | 'progress' | 'analytics' | 'learn'
 
 const iso = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -28,6 +32,7 @@ export default function App() {
   const [userEmail, setUserEmail] = useState<string | null>(null)
   const [syncState, setSyncState] = useState<'idle' | 'saving' | 'error'>('idle')
   const [generatingPdf, setGeneratingPdf] = useState(false)
+  const [tab, setTab] = useState<TabId>('today')
   const fileRef = useRef<HTMLInputElement>(null)
 
   /* ---- auth session ---- */
@@ -142,6 +147,36 @@ export default function App() {
     }
   }
 
+  const backlogPanel = backlog.length > 0 && (
+    <div className="card p-3">
+      <div className="flex items-baseline justify-between">
+        <span className="eyebrow">backlog</span>
+        <span className="font-mono text-xs text-miss">{backlog.length} unsolved</span>
+      </div>
+      <p className="text-xs text-muted mt-1">
+        From days that have passed. Absent days are excluded.
+      </p>
+      <ul className="mt-2 max-h-56 overflow-y-auto divide-y divide-rule">
+        {backlog.slice(0, 60).map((b) => (
+          <li key={b.slug} className="py-1.5 flex items-center gap-2 text-sm">
+            <span className="font-mono text-[10px] text-muted w-16 shrink-0">
+              {b.date.slice(5)}
+            </span>
+            <a
+              href={`https://leetcode.com/problems/${b.slug}/`}
+              target="_blank"
+              rel="noreferrer"
+              className="flex-1 hover:underline truncate"
+            >
+              {b.title}
+            </a>
+            <span className="font-mono text-[10px] text-muted shrink-0">{b.difficulty}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+
   return (
     <div className="min-h-full">
       <Header
@@ -151,97 +186,78 @@ export default function App() {
         syncState={syncState}
       />
 
-      <main className="max-w-6xl mx-auto px-4 py-4 space-y-4">
-        {!cloudEnabled && (
-          <div className="card px-3 py-2 text-xs text-muted">
-            Running in local mode — progress is saved in this browser only. Add your Supabase keys
-            to sign in and sync across devices, or export a backup below.
+      <main className="max-w-6xl mx-auto px-4 py-3 space-y-3">
+        <StatsBar schedule={SCHEDULE} progress={progress} todayIso={todayIso} />
+
+        <Tabs
+          tabs={[
+            { id: 'today', label: 'Today' },
+            { id: 'progress', label: 'Progress' },
+            { id: 'analytics', label: 'Analytics' },
+            { id: 'learn', label: 'Learn' },
+          ]}
+          active={tab}
+          onChange={setTab}
+        />
+
+        {tab === 'today' && (
+          <div className="grid lg:grid-cols-3 gap-3 items-start">
+            <div className="lg:col-span-2">
+              <DayPanel
+                day={selectedDay}
+                state={progress[selectedDay.date] ?? emptyDay()}
+                onChange={(next) => setDay(selectedDay.date, next)}
+                onJump={jump}
+              />
+            </div>
+            <div className="space-y-3">
+              <DayResources day={selectedDay} />
+              <ContestPanel />
+            </div>
           </div>
         )}
 
-        <StatsBar schedule={SCHEDULE} progress={progress} todayIso={todayIso} />
-
-        <Analytics schedule={SCHEDULE} progress={progress} todayIso={todayIso} />
-
-        <ConsistencyGrid
-          schedule={SCHEDULE}
-          progress={progress}
-          todayIso={todayIso}
-          selected={selected}
-          onSelect={setSelected}
-        />
-
-        <div className="grid lg:grid-cols-3 gap-4 items-start">
-          <div className="lg:col-span-2 space-y-4">
-            <DayPanel
-              day={selectedDay}
-              state={progress[selectedDay.date] ?? emptyDay()}
-              onChange={(next) => setDay(selectedDay.date, next)}
-              onJump={jump}
-            />
-
-            {backlog.length > 0 && (
-              <div className="card p-3">
-                <div className="flex items-baseline justify-between">
-                  <span className="eyebrow">backlog</span>
-                  <span className="font-mono text-xs text-miss">{backlog.length} unsolved</span>
-                </div>
-                <p className="text-xs text-muted mt-1">
-                  From days that have passed. Absent days are excluded.
-                </p>
-                <ul className="mt-2 max-h-56 overflow-y-auto divide-y divide-rule">
-                  {backlog.slice(0, 60).map((b) => (
-                    <li key={b.slug} className="py-1.5 flex items-center gap-2 text-sm">
-                      <span className="font-mono text-[10px] text-muted w-16 shrink-0">
-                        {b.date.slice(5)}
-                      </span>
-                      <a
-                        href={`https://leetcode.com/problems/${b.slug}/`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex-1 hover:underline truncate"
-                      >
-                        {b.title}
-                      </a>
-                      <span className="font-mono text-[10px] text-muted shrink-0">
-                        {b.difficulty}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-4">
-            <CalendarView
+        {tab === 'progress' && (
+          <div className="space-y-3">
+            <ConsistencyGrid
               schedule={SCHEDULE}
               progress={progress}
               todayIso={todayIso}
               selected={selected}
               onSelect={setSelected}
             />
-            <ContestPanel />
-            <TopicProgress schedule={SCHEDULE} progress={progress} />
+            <div className="grid lg:grid-cols-3 gap-3 items-start">
+              <CalendarView
+                schedule={SCHEDULE}
+                progress={progress}
+                todayIso={todayIso}
+                selected={selected}
+                onSelect={setSelected}
+              />
+              <TopicProgress schedule={SCHEDULE} progress={progress} />
+              <div className="space-y-3">{backlogPanel}</div>
+            </div>
+          </div>
+        )}
+
+        {tab === 'analytics' && (
+          <div className="space-y-3">
+            <Analytics schedule={SCHEDULE} progress={progress} todayIso={todayIso} />
 
             <div className="card p-3">
               <span className="eyebrow">your data</span>
-              <button
-                className="btn btn-primary w-full mt-2 justify-center flex items-center gap-2"
-                onClick={downloadPdfReport}
-                disabled={generatingPdf}
-              >
-                {generatingPdf ? 'Generating report…' : 'Export PDF report ↓'}
-              </button>
-              <p className="text-[11px] text-muted mt-1.5">
-                A detailed, printable report — every stat, weekly summary, topic coverage, and
-                the full 140-day log.
-              </p>
-              <div className="flex gap-2 mt-3 pt-3 border-t border-rule">
-                <button className="btn flex-1 text-xs" onClick={downloadBackup}>
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <button
+                  className="btn btn-primary"
+                  onClick={downloadPdfReport}
+                  disabled={generatingPdf}
+                >
+                  {generatingPdf ? 'Generating report…' : 'Export PDF report ↓'}
+                </button>
+                <button className="btn text-xs" onClick={downloadBackup}>
                   Backup (JSON)
                 </button>
-                <button className="btn flex-1 text-xs" onClick={() => fileRef.current?.click()}>
+                <button className="btn text-xs" onClick={() => fileRef.current?.click()}>
                   Restore
                 </button>
                 <input
@@ -251,12 +267,24 @@ export default function App() {
                   className="hidden"
                   onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])}
                 />
+                <p className="text-[11px] text-muted flex-1 min-w-[200px]">
+                  The PDF is a detailed, printable report — every stat, weekly summary, topic
+                  coverage, and the full 140-day log.
+                </p>
               </div>
+              {!cloudEnabled && (
+                <p className="text-[11px] text-muted mt-2 pt-2 border-t border-rule">
+                  Running in local mode — progress is saved in this browser only. Add your
+                  Supabase keys to sign in and sync across devices, or keep a JSON backup.
+                </p>
+              )}
             </div>
           </div>
-        </div>
+        )}
 
-        <footer className="text-center text-[11px] text-muted py-4">
+        {tab === 'learn' && <ResourceLibrary schedule={SCHEDULE} />}
+
+        <footer className="text-center text-[11px] text-muted py-3">
           140 days · 22 Aug 2026 → 8 Jan 2027 · interview-ready checkpoint 31 Dec
         </footer>
       </main>

@@ -7,51 +7,59 @@ interface StatsProps {
   todayIso: string
 }
 
+/**
+ * Always-visible KPI strip. Deliberately one dense row — it sits above the tab
+ * bar on every view, so it has to cost as little vertical space as possible.
+ */
 export function StatsBar({ schedule, progress, todayIso }: StatsProps) {
   const s = computeAnalytics(schedule, progress, todayIso)
   const pace = s.expected === 0 ? 0 : Math.round((s.solved / s.expected) * 100)
+  const diffTotal = s.byDiff.Easy + s.byDiff.Medium + s.byDiff.Hard || 1
 
   const items = [
-    { label: 'problems solved', value: `${s.solved}`, sub: `of ${s.totalUnique}` },
-    { label: 'hours logged', value: s.hours.toFixed(1), sub: 'total' },
-    { label: 'current streak', value: `${s.streak}`, sub: 'days' },
-    { label: 'best streak', value: `${s.bestStreak}`, sub: 'days' },
-    { label: 'consistency', value: `${s.consistencyPct}%`, sub: `${s.daysDone}/${s.elapsed} days` },
-    { label: 'contests done', value: `${s.contests}`, sub: 'rated' },
-    { label: 'on-pace', value: `${pace}%`, sub: `${s.solved}/${s.expected} due` },
+    { label: 'solved', value: `${s.solved}`, sub: `/ ${s.totalUnique}` },
+    { label: 'hours', value: s.hours.toFixed(1), sub: 'total' },
+    { label: 'streak', value: `${s.streak}`, sub: `best ${s.bestStreak}` },
+    { label: 'consistency', value: `${s.consistencyPct}%`, sub: `${s.daysDone}/${s.elapsed}d` },
+    { label: 'on-pace', value: `${pace}%`, sub: `${s.solved}/${s.expected}` },
+    { label: 'contests', value: `${s.contests}`, sub: 'rated' },
   ]
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-      {items.map((it) => (
-        <div key={it.label} className="card card-hover px-3 py-2.5">
-          <div className="eyebrow">{it.label}</div>
-          <div className="font-mono text-2xl font-bold tabular-nums mt-0.5 leading-none text-ink">
-            {it.value}
+    <div className="card px-3 py-2">
+      <div className="flex items-center gap-3 overflow-x-auto">
+        {items.map((it) => (
+          <div key={it.label} className="shrink-0 pr-3 border-r border-rule last:border-0">
+            <div className="eyebrow leading-none">{it.label}</div>
+            <div className="flex items-baseline gap-1.5 mt-1">
+              <span className="font-mono text-lg font-bold tabular-nums leading-none text-ink">
+                {it.value}
+              </span>
+              <span className="font-mono text-[10px] text-muted">{it.sub}</span>
+            </div>
           </div>
-          <div className="text-[11px] text-muted mt-1">{it.sub}</div>
-        </div>
-      ))}
-      <div className="card px-3 py-2.5 col-span-2 sm:col-span-4 lg:col-span-7">
-        <div className="flex items-center justify-between">
-          <span className="eyebrow">difficulty mix</span>
-          <span className="font-mono text-xs text-muted">
-            E {s.byDiff.Easy} · M {s.byDiff.Medium} · H {s.byDiff.Hard}
-          </span>
-        </div>
-        <div className="flex h-2 mt-2 rounded-full overflow-hidden bg-ground">
-          {(['Easy', 'Medium', 'Hard'] as const).map((k) => {
-            const total = s.byDiff.Easy + s.byDiff.Medium + s.byDiff.Hard || 1
-            const color = k === 'Easy' ? 'bg-ac' : k === 'Medium' ? 'bg-warn' : 'bg-miss'
-            return (
-              <div
-                key={k}
-                className={color}
-                style={{ width: `${(s.byDiff[k] / total) * 100}%` }}
-                title={`${k}: ${s.byDiff[k]}`}
-              />
-            )
-          })}
+        ))}
+
+        <div className="shrink-0 min-w-[130px] flex-1">
+          <div className="flex items-baseline justify-between">
+            <span className="eyebrow leading-none">difficulty</span>
+            <span className="font-mono text-[10px] text-muted">
+              {s.byDiff.Easy}·{s.byDiff.Medium}·{s.byDiff.Hard}
+            </span>
+          </div>
+          <div className="flex h-1.5 mt-1.5 rounded-full overflow-hidden bg-ground">
+            {(['Easy', 'Medium', 'Hard'] as const).map((k) => {
+              const color = k === 'Easy' ? 'bg-ac' : k === 'Medium' ? 'bg-warn' : 'bg-miss'
+              return (
+                <div
+                  key={k}
+                  className={color}
+                  style={{ width: `${(s.byDiff[k] / diffTotal) * 100}%` }}
+                  title={`${k}: ${s.byDiff[k]}`}
+                />
+              )
+            })}
+          </div>
         </div>
       </div>
     </div>

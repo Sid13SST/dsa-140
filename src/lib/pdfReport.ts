@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import type { Day, Progress } from '../types'
 import { computeAnalytics } from './analytics'
+import { GENERAL_RESOURCES, TOPIC_RESOURCES } from '../data/resources'
 
 type RGB = [number, number, number]
 
@@ -20,6 +21,35 @@ const COLOR = {
   brandSoft: [235, 233, 252] as RGB,
   ground: [238, 241, 246] as RGB,
   white: [255, 255, 255] as RGB,
+}
+
+/**
+ * jsPDF's built-in Helvetica is Latin-1 only. Anything outside that range is
+ * mangled rather than dropped cleanly — an em-dash renders as nothing and an
+ * arrow turns into "!" while forcing the rest of the string into a broken
+ * wide encoding. So map the typographic characters we use to ASCII and strip
+ * anything else (day notes are free text, so this has to be total).
+ */
+const CHAR_MAP: Record<string, string> = {
+  '—': '-', // em dash
+  '–': '-', // en dash
+  '→': '->',
+  '←': '<-',
+  '↑': '^',
+  '↓': 'v',
+  '‘': "'",
+  '’': "'",
+  '“': '"',
+  '”': '"',
+  '…': '...',
+  '•': '*',
+  '✓': 'Yes',
+  ' ': ' ',
+}
+
+function t(value: string): string {
+  // Latin-1 printable ranges pass through untouched; everything else is mapped.
+  return value.replace(/[^\x20-\x7E\xA0-\xFF]/g, (c) => CHAR_MAP[c] ?? '')
 }
 
 function fmtDate(iso: string) {
@@ -68,14 +98,14 @@ export function generatePdfReport(
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(13)
-  doc.text('Interview Prep — Progress Report', margin, 68)
+  doc.text(t('Interview Prep — Progress Report'), margin, 68)
 
   doc.setFontSize(9)
   doc.setTextColor(198, 204, 220)
   const rangeLabel = `${fmtDate(schedule[0].date)} → ${fmtDate(schedule[schedule.length - 1].date)}`
-  doc.text(`Plan window: ${rangeLabel}`, margin, 88)
+  doc.text(t(`Plan window: ${rangeLabel}`), margin, 88)
   doc.text(
-    `Generated ${fmtDate(todayIso)}${opts.studentName ? `  ·  Prepared for ${opts.studentName}` : ''}`,
+    t(`Generated ${fmtDate(todayIso)}${opts.studentName ? `  ·  Prepared for ${opts.studentName}` : ''}`),
     margin,
     101,
   )
@@ -105,15 +135,15 @@ export function generatePdfReport(
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(6.2)
     doc.setTextColor(...COLOR.muted)
-    doc.text(k.label, x + 7, y + 14, { maxWidth: tileW - 12 })
+    doc.text(t(k.label), x + 7, y + 14, { maxWidth: tileW - 12 })
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(16)
     doc.setTextColor(...COLOR.ink)
-    doc.text(k.value, x + 7, y + 36)
+    doc.text(t(k.value), x + 7, y + 36)
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(6.8)
     doc.setTextColor(...COLOR.muted)
-    doc.text(k.sub, x + 7, y + 49, { maxWidth: tileW - 12 })
+    doc.text(t(k.sub), x + 7, y + 49, { maxWidth: tileW - 12 })
   })
 
   y += tileH + 22
@@ -161,7 +191,7 @@ export function generatePdfReport(
     doc.setFillColor(...color)
     doc.rect(lx, legendY - 7, 8, 8, 'F')
     doc.setTextColor(...COLOR.ink)
-    doc.text(`${label} ${count}`, lx + 12, legendY)
+    doc.text(t(`${label} ${count}`), lx + 12, legendY)
     lx += 62
   }
 
@@ -186,18 +216,18 @@ export function generatePdfReport(
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(11)
   doc.setTextColor(...COLOR.brandDeep)
-  doc.text(paceText, px + 10, y + 28)
+  doc.text(t(paceText), px + 10, y + 28)
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8.2)
   doc.setTextColor(...COLOR.ink)
   doc.text(
-    `Projected finish: ${a.projectedFinishIso ? fmtDate(a.projectedFinishIso) : 'not enough data yet'}`,
+    t(`Projected finish: ${a.projectedFinishIso ? fmtDate(a.projectedFinishIso) : 'not enough data yet'}`),
     px + 10,
     y + 43,
   )
   doc.text(
-    `Avg ${a.avgProblemsPerActiveDay.toFixed(1)} solved / ${a.avgHoursPerActiveDay.toFixed(1)}h per active day`,
+    t(`Avg ${a.avgProblemsPerActiveDay.toFixed(1)} solved / ${a.avgHoursPerActiveDay.toFixed(1)}h per active day`),
     px + 10,
     y + 56,
   )
@@ -217,7 +247,7 @@ export function generatePdfReport(
     head: [['Week', 'Starting', 'Days done', 'Hours', 'Solved']],
     body: a.weekly.map((w, i) => [
       `W${i + 1}`,
-      fmtDate(w.weekStart),
+      t(fmtDate(w.weekStart)),
       `${schedule.slice(i * 7, i * 7 + 7).filter((d) => progress[d.date]?.status === 'done').length}`,
       w.hours.toFixed(1),
       `${w.solved}`,
@@ -258,7 +288,7 @@ export function generatePdfReport(
     startY: y,
     margin: { left: margin, right: margin },
     head: [['Topic', 'Solved / Total', '%']],
-    body: topicRows.map(([topic, r]) => [topic, `${r.done} / ${r.total}`, `${Math.round((r.done / r.total) * 100)}%`]),
+    body: topicRows.map(([topic, r]) => [t(topic), `${r.done} / ${r.total}`, `${Math.round((r.done / r.total) * 100)}%`]),
     theme: 'plain',
     styles: { fontSize: 8, cellPadding: 4, textColor: COLOR.ink, lineColor: COLOR.rule, lineWidth: 0.5 },
     headStyles: { fillColor: COLOR.ink, textColor: COLOR.white, fontStyle: 'bold' },
@@ -294,12 +324,12 @@ export function generatePdfReport(
       return [
         `${d.day}`,
         d.date.slice(5),
-        d.topic,
+        t(d.topic),
         statusLabel(st, d.date < todayIso),
-        st?.hours ? st.hours.toFixed(1) : '—',
+        st?.hours ? st.hours.toFixed(1) : '-',
         `${st?.solved.length ?? 0}/${target}`,
-        st?.contestDone ? 'Yes' : '—',
-        st?.notes?.trim() || '',
+        st?.contestDone ? 'Yes' : '-',
+        t(st?.notes?.trim() || ''),
       ]
     }),
     theme: 'plain',
@@ -326,6 +356,74 @@ export function generatePdfReport(
         data.cell.styles.fontStyle = 'bold'
         data.cell.styles.textColor =
           status === 'Done' ? COLOR.ac : status === 'Absent' ? COLOR.miss : status === 'Missed' ? COLOR.warn : COLOR.muted
+      }
+    },
+  })
+
+  /* -------------------------- Learning resources --------------------------- */
+  doc.addPage()
+  y = margin
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10.5)
+  doc.setTextColor(...COLOR.ink)
+  doc.text('LEARNING RESOURCES', margin, y)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8)
+  doc.setTextColor(...COLOR.muted)
+  doc.text(
+    'Concept videos and references for every topic in the plan. Links are clickable.',
+    margin,
+    y + 12,
+  )
+  y += 20
+
+  const kindLabel = { video: 'Video', reading: 'Read', practice: 'Practice' } as const
+  // Topics in the order the plan teaches them, so the list doubles as a syllabus.
+  const orderedTopics: string[] = []
+  for (const d of schedule) {
+    for (const t of [d.topic, ...d.problems.map((p) => p.topic)]) {
+      if (TOPIC_RESOURCES[t] && !orderedTopics.includes(t)) orderedTopics.push(t)
+    }
+  }
+
+  const resourceRows: string[][] = []
+  for (const r of GENERAL_RESOURCES) {
+    resourceRows.push(['Start here', kindLabel[r.kind], t(r.label), t(r.source), r.url])
+  }
+  for (const topic of orderedTopics) {
+    for (const r of TOPIC_RESOURCES[topic] ?? []) {
+      resourceRows.push([t(topic), kindLabel[r.kind], t(r.label), t(r.source), r.url])
+    }
+  }
+
+  autoTable(doc, {
+    startY: y,
+    margin: { left: margin, right: margin },
+    head: [['Topic', 'Type', 'Material', 'Source', 'Link']],
+    body: resourceRows,
+    theme: 'plain',
+    styles: {
+      fontSize: 6.8,
+      cellPadding: 3.5,
+      textColor: COLOR.ink,
+      lineColor: COLOR.rule,
+      lineWidth: 0.4,
+      overflow: 'linebreak',
+    },
+    headStyles: { fillColor: COLOR.ink, textColor: COLOR.white, fontStyle: 'bold', fontSize: 7.5 },
+    alternateRowStyles: { fillColor: COLOR.ground },
+    columnStyles: {
+      0: { cellWidth: 84, fontStyle: 'bold' },
+      1: { cellWidth: 34, halign: 'center' },
+      2: { cellWidth: 150 },
+      3: { cellWidth: 62 },
+      4: { cellWidth: 'auto', textColor: COLOR.brandDeep },
+    },
+    didDrawCell: (data) => {
+      // Make the URL column an actual clickable link in the PDF.
+      if (data.section === 'body' && data.column.index === 4) {
+        const url = String(data.cell.raw)
+        doc.link(data.cell.x, data.cell.y, data.cell.width, data.cell.height, { url })
       }
     },
   })

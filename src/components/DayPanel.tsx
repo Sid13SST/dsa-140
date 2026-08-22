@@ -1,5 +1,6 @@
 import type { Day, DayState } from '../types'
 import { emptyDay } from '../types'
+import { problemHelp } from '../data/resources'
 
 interface Props {
   day: Day
@@ -156,8 +157,9 @@ export default function DayPanel({ day, state, onChange, onJump }: Props) {
       <ul className={`mt-3 divide-y divide-rule ${absent ? 'opacity-40' : ''}`}>
         {day.problems.map((p) => {
           const checked = st.solved.includes(p.slug)
+          const help = problemHelp(p.slug, p.title)
           return (
-            <li key={p.slug} className="flex items-center gap-3 py-2">
+            <li key={p.slug} className="flex items-center gap-3 py-2 group">
               <input
                 type="checkbox"
                 checked={checked}
@@ -182,6 +184,27 @@ export default function DayPanel({ day, state, onChange, onJump }: Props) {
               <span className={`font-mono text-[11px] shrink-0 ${diffClass(p.difficulty)}`}>
                 {p.difficulty}
               </span>
+              {/* Stuck? These are always available, not just once the box is ticked. */}
+              <a
+                href={help.video}
+                target="_blank"
+                rel="noreferrer"
+                title={`Search YouTube for a ${p.title} walkthrough`}
+                className="font-mono text-[10px] text-muted hover:text-miss shrink-0
+                  opacity-60 group-hover:opacity-100 transition-opacity"
+              >
+                ▶ video
+              </a>
+              <a
+                href={help.editorial}
+                target="_blank"
+                rel="noreferrer"
+                title={`Read community solutions for ${p.title}`}
+                className="font-mono text-[10px] text-muted hover:text-brand shrink-0
+                  opacity-60 group-hover:opacity-100 transition-opacity"
+              >
+                ¶ sol
+              </a>
               <a
                 href={LC(p.slug)}
                 target="_blank"
