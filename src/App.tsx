@@ -3,20 +3,16 @@ import { SCHEDULE, TOTAL_DAYS } from './data/schedule'
 import type { DayState, Progress } from './types'
 import { emptyDay } from './types'
 import { exportJSON, importJSON, loadLocal, saveLocal } from './lib/storage'
-import { cloudEnabled, fetchProgress, pushProgress, signOut, supabase } from './lib/supabase'
 import { useTheme } from './lib/theme'
-import { ADMIN_EMAIL, fetchProfile, recordLogin, type Profile } from './lib/account'
 import Header from './components/Header'
 import { ConsistencyGrid, StatsBar } from './components/Overview'
 import Analytics from './components/Analytics'
 import DayPanel from './components/DayPanel'
 import Tabs from './components/Tabs'
 import ResourceLibrary, { DayResources } from './components/Resources'
-import AdminPanel from './components/AdminPanel'
-import { Paywall, SignIn } from './components/AuthGate'
 import { CalendarView, ContestPanel, TopicProgress } from './components/Panels'
 
-type TabId = 'today' | 'progress' | 'analytics' | 'learn' | 'admin'
+type TabId = 'today' | 'progress' | 'analytics' | 'learn'
 
 const iso = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -32,74 +28,15 @@ export default function App() {
   const todayIso = iso(new Date())
   const [progress, setProgress] = useState<Progress>(() => loadLocal())
   const [selected, setSelected] = useState(() => resolveToday(todayIso))
-  const [userId, setUserId] = useState<string | null>(null)
-  const [userEmail, setUserEmail] = useState<string | null>(null)
-  const [syncState, setSyncState] = useState<'idle' | 'saving' | 'error'>('idle')
   const [generatingPdf, setGeneratingPdf] = useState(false)
   const [tab, setTab] = useState<TabId>('today')
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [authReady, setAuthReady] = useState(!cloudEnabled)
   const fileRef = useRef<HTMLInputElement>(null)
   const theme = useTheme()
 
-  /* ---- auth session ---- */
-  useEffect(() => {
-    if (!supabase) return
-    supabase.auth.getSession().then(({ data }) => {
-      setUserId(data.session?.user.id ?? null)
-      setUserEmail(data.session?.user.email ?? null)
-      setAuthReady(true)
-    })
-    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      setUserId(session?.user.id ?? null)
-      setUserEmail(session?.user.email ?? null)
-      setAuthReady(true)
-      if (event === 'SIGNED_IN' && session?.user.email) {
-        void recordLogin(session.user.id, session.user.email)
-      }
-      if (event === 'SIGNED_OUT') setProfile(null)
-    })
-    return () => sub.subscription.unsubscribe()
-  }, [])
-
-  /* ---- profile drives access: role + whether they've paid ---- */
-  const reloadProfile = useCallback(() => {
-    if (!userId) return
-    fetchProfile(userId)
-      .then(setProfile)
-      .catch(() => setProfile(null))
-  }, [userId])
-
-  useEffect(reloadProfile, [reloadProfile])
-
-  /* ---- pull cloud progress once signed in; local wins if cloud is empty ---- */
-  useEffect(() => {
-    if (!userId) return
-    fetchProgress(userId)
-      .then((remote) => {
-        if (remote && Object.keys(remote).length) {
-          setProgress((local) => ({ ...local, ...remote }))
-        } else {
-          void pushProgress(userId, progress)
-        }
-      })
-      .catch(() => setSyncState('error'))
-    // Intentionally runs on sign-in only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId])
-
-  /* ---- persist: local always, cloud when signed in (debounced) ---- */
+  /* ---- progress lives in this browser; export a JSON backup to move it ---- */
   useEffect(() => {
     saveLocal(progress)
-    if (!userId) return
-    setSyncState('saving')
-    const t = setTimeout(() => {
-      pushProgress(userId, progress)
-        .then(() => setSyncState('idle'))
-        .catch(() => setSyncState('error'))
-    }, 800)
-    return () => clearTimeout(t)
-  }, [progress, userId])
+  }, [progress])
 
   const setDay = useCallback((date: string, next: DayState) => {
     setProgress((p) => ({ ...p, [date]: next }))
@@ -156,7 +93,7 @@ export default function App() {
       // jsPDF + autotable are only needed here, so they're code-split into a
       // chunk that loads on demand instead of bloating the initial page load.
       const { generatePdfReport } = await import('./lib/pdfReport')
-      generatePdfReport(SCHEDULE, progress, todayIso, { studentName: userEmail ?? undefined })
+      generatePdfReport(SCHEDULE, progress, todayIso)
     } finally {
       setGeneratingPdf(false)
     }
@@ -200,46 +137,11 @@ export default function App() {
     </div>
   )
 
-  /*
-   * Access gating. This is presentation only — the real enforcement is the RLS
-   * policies in supabase/schema.sql plus server-side signature verification in
-   * api/verify-payment.ts. A user editing state in devtools gains a view of the
-   * static schedule, not anyone's data.
-   */
-  const isAdmin = profile?.role === 'admin' || userEmail === ADMIN_EMAIL
-  const hasAccess = isAdmin || profile?.has_paid === true
-
-  if (cloudEnabled) {
-    if (!authReady) {
-      return (
-        <div className="min-h-full grid place-items-center">
-          <p className="text-sm text-muted">Loading…</p>
-        </div>
-      )
-    }
-    if (!userId || !userEmail) {
-      return <SignIn theme={theme.theme} onToggleTheme={theme.toggle} />
-    }
-    if (!hasAccess) {
-      return (
-        <Paywall
-          email={userEmail}
-          theme={theme.theme}
-          onToggleTheme={theme.toggle}
-          onPaid={reloadProfile}
-          onSignOut={() => void signOut()}
-        />
-      )
-    }
-  }
-
   return (
     <div className="min-h-full">
       <Header
         dayNumber={dayNumber}
         totalDays={TOTAL_DAYS}
-        userEmail={userEmail}
-        syncState={syncState}
         theme={theme.theme}
         onToggleTheme={theme.toggle}
       />
@@ -253,7 +155,6 @@ export default function App() {
             { id: 'progress' as const, label: 'Progress' },
             { id: 'analytics' as const, label: 'Analytics' },
             { id: 'learn' as const, label: 'Learn' },
-            ...(isAdmin ? [{ id: 'admin' as const, label: 'Admin' }] : []),
           ]}
           active={tab}
           onChange={setTab}
@@ -331,19 +232,15 @@ export default function App() {
                   coverage, and the full 140-day log.
                 </p>
               </div>
-              {!cloudEnabled && (
-                <p className="text-[11px] text-muted mt-2 pt-2 border-t border-rule">
-                  Running in local mode — progress is saved in this browser only. Add your
-                  Supabase keys to sign in and sync across devices, or keep a JSON backup.
-                </p>
-              )}
+              <p className="text-[11px] text-muted mt-2 pt-2 border-t border-rule">
+                Progress is saved in this browser only. Use Backup / Restore to move it to
+                another browser or device.
+              </p>
             </div>
           </div>
         )}
 
         {tab === 'learn' && <ResourceLibrary schedule={SCHEDULE} />}
-
-        {tab === 'admin' && isAdmin && <AdminPanel />}
 
         <footer className="text-center text-[11px] text-muted py-3">
           140 days · 22 Aug 2026 → 8 Jan 2027 · interview-ready checkpoint 31 Dec
