@@ -1,0 +1,32 @@
+name: Refresh contest list
+
+on:
+  schedule:
+    # Every 6 hours. Codeforces announces rounds days ahead, so this is plenty.
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Fetch Codeforces contests
+        run: node scripts/fetch-contests.mjs
+      - name: Commit if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet -- public/contests.json; then
+            git add public/contests.json
+            git commit -m "chore: refresh contest list"
+            git push
+          else
+            echo "No change."
+          fi
