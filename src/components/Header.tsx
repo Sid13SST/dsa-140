@@ -1,12 +1,9 @@
 import { useEffect, useState } from 'react'
-import { signOut } from '../lib/supabase'
 import type { Theme } from '../lib/theme'
 
 interface Props {
   dayNumber: number | null
   totalDays: number
-  userEmail: string | null
-  syncState: 'idle' | 'saving' | 'error'
   theme: Theme
   onToggleTheme: () => void
 }
@@ -65,35 +62,7 @@ function Clock() {
   )
 }
 
-/** Sign-in now happens on a dedicated gate screen, so the header only signs out. */
-function AuthControl({ userEmail }: { userEmail: string | null }) {
-  if (!userEmail) {
-    return (
-      <span className="eyebrow" title="Set Supabase env vars to enable sign-in and sync.">
-        local mode
-      </span>
-    )
-  }
-  return (
-    <div className="flex items-center gap-2">
-      <span className="font-mono text-xs text-muted hidden md:inline max-w-[160px] truncate">
-        {userEmail}
-      </span>
-      <button className="btn text-xs" onClick={() => signOut()}>
-        Sign out
-      </button>
-    </div>
-  )
-}
-
-export default function Header({
-  dayNumber,
-  totalDays,
-  userEmail,
-  syncState,
-  theme,
-  onToggleTheme,
-}: Props) {
+export default function Header({ dayNumber, totalDays, theme, onToggleTheme }: Props) {
   const pct = dayNumber === null ? 0 : Math.round((dayNumber / totalDays) * 100)
 
   return (
@@ -116,15 +85,12 @@ export default function Header({
                   <span className="text-brand font-bold ml-1">· {pct}%</span>
                 </>
               )}
-              {syncState === 'saving' && <span className="ml-2 text-muted">saving…</span>}
-              {syncState === 'error' && <span className="ml-2 text-miss">sync failed</span>}
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <ThemeToggle theme={theme} onToggle={onToggleTheme} />
-          <AuthControl userEmail={userEmail} />
           <Clock />
         </div>
       </div>
