@@ -17,6 +17,27 @@ So someone flipping a boolean in devtools sees the static 140-day schedule
 
 ---
 
+## The five values you need to collect
+
+Everything reduces to these. Sections 1 and 2 below say exactly where each lives.
+
+| # | Value | Where to get it | Secret? |
+|---|---|---|---|
+| 1 | Supabase **Project URL** | Supabase → Project Settings → API | no |
+| 2 | Supabase **anon** key | Supabase → Project Settings → API | no |
+| 3 | Supabase **service_role** key | Supabase → Project Settings → API → *Reveal* | **yes** |
+| 4 | Razorpay **Key Id** | Razorpay → Settings → API Keys → Generate Test Key | no |
+| 5 | Razorpay **Key Secret** | shown once in that same popup | **yes** |
+
+They become seven env vars because the URL and anon key are needed on both the
+client (`VITE_` prefix) and the server (no prefix). See the table in section 3.
+
+**Never paste values 3 and 5 into a chat, an issue, a commit, or any file in
+this repo.** Type them straight into Vercel's environment-variable settings.
+Nobody — including me — needs to see them to help you.
+
+---
+
 ## 1. Supabase
 
 1. Create a project at [supabase.com](https://supabase.com). Your $25 credit is
@@ -31,20 +52,70 @@ So someone flipping a boolean in devtools sees the static 140-day schedule
 4. **Authentication → URL Configuration**: set **Site URL** to your Vercel domain
    (e.g. `https://dsa-140.vercel.app`) and add it under **Redirect URLs** too.
    Add `http://localhost:5173` as well if you want local sign-in to work.
-5. **Project Settings → API** — copy these three:
-   - Project URL
-   - `anon` / public key
-   - `service_role` key ⚠️ **secret — treat it like a password, never commit it,
-     never prefix it with `VITE_`**
+5. **Getting the keys.** Click the gear icon (**Project Settings**) in the left
+   sidebar → **API**. That page has all three values:
+
+   | On the page | Looks like | Goes into |
+   |---|---|---|
+   | **Project URL** | `https://abcdefgh.supabase.co` | `VITE_SUPABASE_URL` **and** `SUPABASE_URL` |
+   | **Project API keys → `anon` `public`** | long `eyJ…` string | `VITE_SUPABASE_ANON_KEY` **and** `SUPABASE_ANON_KEY` |
+   | **Project API keys → `service_role` `secret`** | long `eyJ…`, hidden behind *Reveal* | `SUPABASE_SERVICE_ROLE_KEY` |
+
+   The URL and `anon` key are *designed* to be public — they're safe in the
+   browser because RLS restricts what they can reach.
+
+   ⚠️ The **`service_role`** key bypasses RLS entirely. Anyone holding it can
+   read and modify every row in your database, including marking themselves as
+   paid. Never commit it, never put it in a `VITE_` variable, never paste it into
+   a chat or an issue. It goes in exactly one place: Vercel's env var settings.
+
+   (Newer Supabase projects may label these *publishable* and *secret* keys
+   instead of *anon* / *service_role* — same things, same roles.)
 
 ## 2. Razorpay
 
-1. Sign up at [razorpay.com](https://razorpay.com). **Settings → API Keys →
-   Generate Test Key** gives you `rzp_test_…` keys that work immediately.
-2. Live keys require KYC (PAN, bank account, business details) and take a few
-   days to approve. **Test mode is enough to build and demo** — use test card
-   `4111 1111 1111 1111`, any future expiry, any CVV.
-3. Copy the **Key ID** and **Key Secret**.
+### How you actually receive the money
+
+This trips people up, so read it once:
+
+- **Customers can pay by UPI** — PhonePe, Google Pay, Paytm, any UPI app.
+  Checkout is configured to open on UPI first (`config.display` in
+  `AuthGate.tsx`), with card/netbanking still available underneath.
+- **You receive settlements into a bank account, not into PhonePe.** Razorpay
+  holds the money and settles it to the bank account you register during KYC,
+  typically on a T+1 cycle. There is no "settle to my PhonePe wallet" option.
+- In practice this is the same money: PhonePe is just an interface to a bank
+  account. Register **the bank account your PhonePe is linked to** and the
+  payouts land where you expect — you'll see them in PhonePe as bank credits.
+- If you truly want money to arrive without a gateway in the middle, the
+  alternative is a plain UPI QR / UPI ID to yourself. **Don't do that here** —
+  there'd be no way for the server to confirm a payment, so anyone could claim
+  they paid and unlock access. The whole point of the Razorpay flow is the
+  signed, server-verifiable confirmation.
+- If you'd rather not use Razorpay at all, **PhonePe Payment Gateway**
+  (PhonePe Business) is the direct competitor and also settles to a bank
+  account. Switching would mean rewriting the two files in `api/`.
+
+### Getting the keys
+
+1. Sign up at [razorpay.com](https://razorpay.com).
+2. Make sure the mode switch at the top of the dashboard says **Test Mode**.
+3. Go to **Settings → API Keys → Generate Test Key**.
+4. A popup shows **Key Id** (`rzp_test_…`) and **Key Secret**. **Download or copy
+   both now — the secret is shown exactly once** and can never be viewed again
+   (you'd have to regenerate, which invalidates the old pair).
+   - `Key Id` → `RAZORPAY_KEY_ID`
+   - `Key Secret` → `RAZORPAY_KEY_SECRET`
+5. Test mode works immediately with no KYC. Test card `4111 1111 1111 1111`,
+   any future expiry, any CVV. Test-mode UPI gives you a simulated success/failure
+   screen rather than a real UPI app.
+6. **Going live** needs KYC — PAN, bank account details, and business/ID proof —
+   and takes a few days to approve. Once approved, switch the dashboard to **Live
+   Mode**, generate a *live* key pair the same way, and replace the two Vercel
+   env vars. Live UPI also requires your account to be activated for it.
+
+> Razorpay charges roughly 2% as a platform fee. On a ₹20 payment that's ~₹0.40,
+> so you net about ₹19.60 per unlock. Confirm current rates on their pricing page.
 
 ## 3. Vercel
 

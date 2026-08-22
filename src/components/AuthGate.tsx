@@ -162,6 +162,21 @@ export function Paywall({
           description: 'Full dashboard access (one-time)',
           prefill: { email },
           theme: { color: '#4F46E5' },
+          // Land the payer straight on UPI (PhonePe / GPay / Paytm). The default
+          // blocks stay available underneath so card and netbanking still work
+          // as a fallback — set show_default_blocks to false for UPI-only.
+          config: {
+            display: {
+              blocks: {
+                upi: {
+                  name: 'Pay via UPI — PhonePe, GPay, Paytm',
+                  instruments: [{ method: 'upi' }],
+                },
+              },
+              sequence: ['block.upi'],
+              preferences: { show_default_blocks: true },
+            },
+          },
           handler: async (r: Record<string, string>) => {
             try {
               await verifyPayment({
@@ -222,7 +237,7 @@ export function Paywall({
         {err && <p className="text-xs text-miss mt-2">{err}</p>}
 
         <div className="flex items-center justify-between mt-4 pt-3 border-t border-rule">
-          <span className="text-[11px] text-muted">Secured by Razorpay</span>
+          <span className="text-[11px] text-muted">UPI, card or netbanking · Secured by Razorpay</span>
           <button className="text-[11px] text-muted hover:text-ink underline" onClick={onSignOut}>
             Sign out
           </button>
