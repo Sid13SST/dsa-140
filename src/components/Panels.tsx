@@ -106,7 +106,7 @@ export function CalendarView({ schedule, progress, todayIso, selected, onSelect 
 
 export function ContestPanel() {
   const [contests, setContests] = useState<Contest[]>([])
-  const [cfError, setCfError] = useState<string | null>(null)
+  const [contestError, setContestError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [tick, setTick] = useState(0)
 
@@ -116,7 +116,7 @@ export function ContestPanel() {
       .then((r) => {
         if (!alive) return
         setContests(r.contests)
-        setCfError(r.cfError)
+        setContestError(r.contestError)
       })
       .finally(() => alive && setLoading(false))
     return () => {
@@ -135,20 +135,30 @@ export function ContestPanel() {
     <div className="card p-3">
       <div className="flex items-baseline justify-between mb-2">
         <span className="eyebrow">upcoming contests</span>
-        <a
-          href="https://codeforces.com/contests"
-          target="_blank"
-          rel="noreferrer"
-          className="font-mono text-[10px] text-muted hover:text-ink underline"
-        >
-          codeforces ↗
-        </a>
+        <div className="flex items-center gap-2">
+          <a
+            href="https://codeforces.com/contests"
+            target="_blank"
+            rel="noreferrer"
+            className="font-mono text-[10px] text-muted hover:text-ink underline"
+          >
+            codeforces ↗
+          </a>
+          <a
+            href="https://www.codechef.com/contests"
+            target="_blank"
+            rel="noreferrer"
+            className="font-mono text-[10px] text-muted hover:text-ink underline"
+          >
+            codechef ↗
+          </a>
+        </div>
       </div>
 
       {loading && <p className="text-sm text-muted py-2">Loading contests…</p>}
 
-      {cfError && (
-        <p className="text-xs text-warn mb-2 leading-snug">{cfError}</p>
+      {contestError && (
+        <p className="text-xs text-warn mb-2 leading-snug">{contestError}</p>
       )}
 
       <ul className="divide-y divide-rule">
@@ -158,7 +168,11 @@ export function ContestPanel() {
             <li key={c.id} className="py-2 flex items-center gap-3">
               <span
                 className={`w-1.5 h-8 rounded-full shrink-0 ${
-                  c.platform === 'LeetCode' ? 'bg-warn' : 'bg-ink'
+                  c.platform === 'LeetCode'
+                    ? 'bg-warn'
+                    : c.platform === 'CodeChef'
+                      ? 'bg-ac'
+                      : 'bg-ink'
                 }`}
               />
               <div className="flex-1 min-w-0">
@@ -197,7 +211,8 @@ export function ContestPanel() {
 
       {!loading && contests.length === 0 && (
         <p className="text-sm text-muted py-2">
-          No contests found. Check codeforces.com/contests and leetcode.com/contest directly.
+          No contests found. Check codeforces.com/contests, codechef.com/contests, and
+          leetcode.com/contest directly.
         </p>
       )}
     </div>

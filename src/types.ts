@@ -46,7 +46,7 @@ export const emptyDay = (): DayState => ({
 export interface Contest {
   id: string
   name: string
-  platform: 'LeetCode' | 'Codeforces'
+  platform: 'LeetCode' | 'Codeforces' | 'CodeChef'
   startsAt: number // epoch ms
   durationMin: number
   url: string
