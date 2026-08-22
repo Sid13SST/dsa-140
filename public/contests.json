@@ -1,1 +1,29 @@
-{"updatedAt": null, "contests": []}
+{
+  "updatedAt": "2026-08-22T06:31:47.843Z",
+  "contests": [
+    {
+      "id": "cc-DSAMONDAY017",
+      "name": "Monday Munch - DSA Challenge 017 (Rated)",
+      "platform": "CodeChef",
+      "startsAt": 1787578200000,
+      "durationMin": 180,
+      "url": "https://www.codechef.com/DSAMONDAY017"
+    },
+    {
+      "id": "cc-START253",
+      "name": "Starters 253",
+      "platform": "CodeChef",
+      "startsAt": 1787754600000,
+      "durationMin": 120,
+      "url": "https://www.codechef.com/START253"
+    },
+    {
+      "id": "cf-2258",
+      "name": "Codeforces Round (Div. 2)",
+      "platform": "Codeforces",
+      "startsAt": 1788014100000,
+      "durationMin": 120,
+      "url": "https://codeforces.com/contest/2258"
+    }
+  ]
+}
