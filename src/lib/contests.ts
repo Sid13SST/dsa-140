@@ -1,10 +1,11 @@
 import type { Contest } from '../types'
 
 /**
- * Codeforces publishes a public, CORS-enabled JSON API, so upcoming rounds are
- * fetched live. LeetCode's GraphQL endpoint blocks browser requests, so its
- * contests are derived from the fixed recurring schedule instead and flagged
- * with `computed: true` in the UI.
+ * Codeforces and CodeChef both publish JSON contest lists but neither sends
+ * CORS headers, so they're fetched server-side (see fetch-contests.mjs) into
+ * `public/contests.json`. LeetCode's GraphQL endpoint blocks browser requests
+ * entirely, so its contests are derived from the fixed recurring schedule
+ * instead and flagged with `computed: true` in the UI.
  */
 
 const CF_API = 'https://codeforces.com/api/contest.list?gym=false'
@@ -40,6 +41,29 @@ export async function fetchCodeforces(): Promise<Contest[]> {
         startsAt: c.startTimeSeconds * 1000,
         durationMin: Math.round((c.durationSeconds ?? 7200) / 60),
         url: `https://codeforces.com/contest/${c.id}`,
+      }),
+    )
+    .sort((a: Contest, b: Contest) => a.startsAt - b.startsAt)
+}
+
+const CODECHEF_API = 'https://www.codechef.com/api/list/contests/all'
+
+export async function fetchCodeChef(): Promise<Contest[]> {
+  const res = await fetch(CODECHEF_API)
+  if (!res.ok) throw new Error(`CodeChef returned ${res.status}`)
+  const json = await res.json()
+  if (!Array.isArray(json.future_contests)) {
+    throw new Error('CodeChef returned an unexpected response.')
+  }
+  return json.future_contests
+    .map(
+      (c: any): Contest => ({
+        id: `cc-${c.contest_code}`,
+        name: c.contest_name,
+        platform: 'CodeChef',
+        startsAt: new Date(c.contest_start_date_iso).getTime(),
+        durationMin: Math.round(Number(c.contest_duration ?? 180)),
+        url: `https://www.codechef.com/${c.contest_code}`,
       }),
     )
     .sort((a: Contest, b: Contest) => a.startsAt - b.startsAt)
@@ -107,32 +131,43 @@ export function leetcodeUpcoming(from = Date.now(), count = 4): Contest[] {
 
 export async function loadAllContests(): Promise<{
   contests: Contest[]
-  cfError: string | null
+  contestError: string | null
 }> {
   const lc = leetcodeUpcoming()
-  let cf: Contest[] = []
-  let cfError: string | null = null
+  let fetched: Contest[] = []
+  let contestError: string | null = null
 
   try {
-    cf = await fromStaticFile()
+    fetched = await fromStaticFile()
   } catch {
-    try {
-      cf = await fetchCodeforces()
-    } catch {
-      cfError =
-        "Codeforces rounds aren't loading. The scheduled job refreshes them every 6 hours — " +
+    // The static file (refreshed server-side every 6h) is unavailable — fall
+    // back to live browser fetches, which only work where CORS isn't enforced.
+    const [cf, cc] = await Promise.allSettled([fetchCodeforces(), fetchCodeChef()])
+    if (cf.status === 'fulfilled') fetched.push(...cf.value)
+    if (cc.status === 'fulfilled') fetched.push(...cc.value)
+    if (cf.status === 'rejected' && cc.status === 'rejected') {
+      contestError =
+        "Codeforces and CodeChef rounds aren't loading. The scheduled job refreshes them every 6 hours — " +
+        'until then, check codeforces.com/contests and codechef.com/contests directly.'
+    } else if (cf.status === 'rejected') {
+      contestError =
+        "Codeforces rounds aren't loading right now. The scheduled job refreshes them every 6 hours — " +
         'until then, check codeforces.com/contests directly.'
+    } else if (cc.status === 'rejected') {
+      contestError =
+        "CodeChef rounds aren't loading right now. The scheduled job refreshes them every 6 hours — " +
+        'until then, check codechef.com/contests directly.'
     }
   }
 
   // Drop anything already finished, then keep the near horizon.
   const now = Date.now()
   return {
-    contests: [...lc, ...cf]
+    contests: [...lc, ...fetched]
       .filter((c) => c.startsAt + c.durationMin * 60_000 > now)
       .sort((a, b) => a.startsAt - b.startsAt)
       .slice(0, 14),
-    cfError,
+    contestError,
   }
 }
 
