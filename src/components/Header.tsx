@@ -108,23 +108,31 @@ function AuthControl({ userEmail }: { userEmail: string | null }) {
 }
 
 export default function Header({ dayNumber, totalDays, userEmail, syncState }: Props) {
+  const pct = dayNumber === null ? 0 : Math.round((dayNumber / totalDays) * 100)
+
   return (
-    <header className="border-b border-rule bg-surface/80 backdrop-blur sticky top-0 z-20">
+    <header className="border-b border-rule bg-surface/70 backdrop-blur-md sticky top-0 z-20">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight leading-none">
-            DSA 140
-          </h1>
-          <div className="eyebrow mt-1">
-            {dayNumber === null ? (
-              <>schedule starts 22 Aug 2026</>
-            ) : (
-              <>
-                day <span className="text-ink font-bold">{dayNumber}</span> of {totalDays}
-              </>
-            )}
-            {syncState === 'saving' && <span className="ml-2 text-muted">saving…</span>}
-            {syncState === 'error' && <span className="ml-2 text-miss">sync failed</span>}
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand to-brand-deep shadow-glow flex items-center justify-center shrink-0">
+            <span className="font-display font-bold text-white text-sm">140</span>
+          </div>
+          <div>
+            <h1 className="font-display text-xl sm:text-2xl font-extrabold tracking-tight leading-none heading-gradient">
+              DSA 140
+            </h1>
+            <div className="eyebrow mt-1">
+              {dayNumber === null ? (
+                <>schedule starts 22 Aug 2026</>
+              ) : (
+                <>
+                  day <span className="text-ink font-bold">{dayNumber}</span> of {totalDays}
+                  <span className="text-brand font-bold ml-1">· {pct}%</span>
+                </>
+              )}
+              {syncState === 'saving' && <span className="ml-2 text-muted">saving…</span>}
+              {syncState === 'error' && <span className="ml-2 text-miss">sync failed</span>}
+            </div>
           </div>
         </div>
 

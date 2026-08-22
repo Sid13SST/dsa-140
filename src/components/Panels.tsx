@@ -86,8 +86,8 @@ export function CalendarView({ schedule, progress, todayIso, selected, onSelect 
               title={day ? `Day ${day.day} · ${day.topic}` : 'Outside the plan'}
               className={`aspect-square rounded-md border font-mono text-xs flex flex-col
                 items-center justify-center disabled:cursor-default
-                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink
-                ${tone} ${iso === selected ? 'ring-2 ring-ink' : ''}
+                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand
+                ${tone} ${iso === selected ? 'ring-2 ring-brand' : ''}
                 ${iso === todayIso ? 'font-bold underline' : ''}`}
             >
               <span>{dayNum}</span>
