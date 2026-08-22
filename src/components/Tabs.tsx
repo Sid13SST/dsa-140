@@ -27,7 +27,7 @@ export default function Tabs<T extends string>({ tabs, active, onChange }: Props
             className={`flex-1 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all
               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
                 isActive
-                  ? 'bg-brand text-white shadow-glow'
+                  ? 'bg-brand text-on-accent shadow-glow'
                   : 'text-muted hover:text-ink hover:bg-ground'
               }`}
           >

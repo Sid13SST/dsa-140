@@ -119,7 +119,7 @@ export default function DayPanel({ day, state, onChange, onJump }: Props) {
               checked={st.contestDone}
               disabled={absent}
               onChange={(e) => patch({ contestDone: e.target.checked })}
-              className="w-4 h-4 accent-[#0E7C66]"
+              className="w-4 h-4 accent-ac"
             />
             <span className="text-sm">
               Gave the contest
@@ -165,7 +165,7 @@ export default function DayPanel({ day, state, onChange, onJump }: Props) {
                 checked={checked}
                 disabled={absent}
                 onChange={() => toggleSolved(p.slug)}
-                className="w-4 h-4 shrink-0 accent-[#0E7C66]"
+                className="w-4 h-4 shrink-0 accent-ac"
                 aria-label={`Mark ${p.title} solved`}
               />
               <a

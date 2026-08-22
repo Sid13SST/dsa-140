@@ -72,7 +72,7 @@ export function CalendarView({ schedule, progress, todayIso, selected, onSelect 
 
           let tone = 'text-muted/40 border-transparent'
           if (day) {
-            if (st?.status === 'done') tone = 'bg-ac text-white border-ac'
+            if (st?.status === 'done') tone = 'bg-ac text-on-accent border-ac'
             else if (st?.status === 'absent') tone = 'bg-miss/20 text-miss border-miss/40'
             else if (iso < todayIso) tone = 'bg-warn/15 border-warn/40'
             else tone = 'bg-surface border-rule'

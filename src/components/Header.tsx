@@ -1,11 +1,38 @@
 import { useEffect, useState } from 'react'
-import { cloudEnabled, signInWithEmail, signOut } from '../lib/supabase'
+import { signOut } from '../lib/supabase'
+import type { Theme } from '../lib/theme'
 
 interface Props {
   dayNumber: number | null
   totalDays: number
   userEmail: string | null
   syncState: 'idle' | 'saving' | 'error'
+  theme: Theme
+  onToggleTheme: () => void
+}
+
+function ThemeToggle({ theme, onToggle }: { theme: Theme; onToggle: () => void }) {
+  const isDark = theme === 'dark'
+  return (
+    <button
+      onClick={onToggle}
+      role="switch"
+      aria-checked={isDark}
+      aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+      title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+      className="relative w-14 h-7 rounded-full border border-rule bg-ground shrink-0
+        transition-colors hover:border-brand/50 focus-visible:outline-none
+        focus-visible:ring-2 focus-visible:ring-brand/50"
+    >
+      <span
+        className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full grid place-items-center
+          text-[11px] bg-surface border border-rule shadow-card
+          transition-transform duration-200 ${isDark ? 'translate-x-0' : 'translate-x-7'}`}
+      >
+        {isDark ? '🌙' : '☀️'}
+      </span>
+    </button>
+  )
 }
 
 function Clock() {
@@ -38,76 +65,35 @@ function Clock() {
   )
 }
 
+/** Sign-in now happens on a dedicated gate screen, so the header only signs out. */
 function AuthControl({ userEmail }: { userEmail: string | null }) {
-  const [email, setEmail] = useState('')
-  const [sent, setSent] = useState(false)
-  const [err, setErr] = useState<string | null>(null)
-  const [open, setOpen] = useState(false)
-
-  if (!cloudEnabled) {
+  if (!userEmail) {
     return (
-      <span className="eyebrow" title="Set Supabase env vars to enable sign-in and cross-device sync.">
+      <span className="eyebrow" title="Set Supabase env vars to enable sign-in and sync.">
         local mode
       </span>
     )
   }
-
-  if (userEmail) {
-    return (
-      <div className="flex items-center gap-2">
-        <span className="font-mono text-xs text-muted hidden sm:inline">{userEmail}</span>
-        <button className="btn" onClick={() => signOut()}>
-          Sign out
-        </button>
-      </div>
-    )
-  }
-
-  if (!open) {
-    return (
-      <button className="btn btn-primary" onClick={() => setOpen(true)}>
-        Sign in
-      </button>
-    )
-  }
-
   return (
-    <div className="flex flex-col items-end gap-1">
-      {sent ? (
-        <span className="text-xs text-ac font-medium">
-          Check {email} for your sign-in link.
-        </span>
-      ) : (
-        <div className="flex gap-1">
-          <input
-            className="field w-48"
-            type="email"
-            placeholder="you@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <button
-            className="btn btn-primary"
-            onClick={async () => {
-              setErr(null)
-              try {
-                await signInWithEmail(email)
-                setSent(true)
-              } catch (e) {
-                setErr(e instanceof Error ? e.message : 'Sign-in failed.')
-              }
-            }}
-          >
-            Send link
-          </button>
-        </div>
-      )}
-      {err && <span className="text-xs text-miss">{err}</span>}
+    <div className="flex items-center gap-2">
+      <span className="font-mono text-xs text-muted hidden md:inline max-w-[160px] truncate">
+        {userEmail}
+      </span>
+      <button className="btn text-xs" onClick={() => signOut()}>
+        Sign out
+      </button>
     </div>
   )
 }
 
-export default function Header({ dayNumber, totalDays, userEmail, syncState }: Props) {
+export default function Header({
+  dayNumber,
+  totalDays,
+  userEmail,
+  syncState,
+  theme,
+  onToggleTheme,
+}: Props) {
   const pct = dayNumber === null ? 0 : Math.round((dayNumber / totalDays) * 100)
 
   return (
@@ -115,7 +101,7 @@ export default function Header({ dayNumber, totalDays, userEmail, syncState }: P
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand to-brand-deep shadow-glow flex items-center justify-center shrink-0">
-            <span className="font-display font-bold text-white text-sm">140</span>
+            <span className="font-display font-bold text-on-accent text-sm">140</span>
           </div>
           <div>
             <h1 className="font-display text-xl sm:text-2xl font-extrabold tracking-tight leading-none heading-gradient">
@@ -136,7 +122,8 @@ export default function Header({ dayNumber, totalDays, userEmail, syncState }: P
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <ThemeToggle theme={theme} onToggle={onToggleTheme} />
           <AuthControl userEmail={userEmail} />
           <Clock />
         </div>

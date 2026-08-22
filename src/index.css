@@ -2,8 +2,63 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+/*
+ * Themes are RGB channel triplets rather than hex so Tailwind's opacity
+ * modifiers (bg-ac/45, ring-brand/50, …) keep working — those are used all
+ * over the app and would break with plain hex custom properties.
+ *
+ * Dark is the default (bare :root); light is opt-in via [data-theme="light"].
+ * The dark accent steps were validated for CVD separation and >=3:1 contrast
+ * against the dark surface rather than eyeballed.
+ */
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --ground: 11 18 32;
+  --surface: 19 28 46;
+  --ink: 230 237 247;
+  --muted: 140 160 188;
+  --rule: 39 52 74;
+
+  --ac: 34 165 131;
+  --warn: 189 134 26;
+  --miss: 219 90 130;
+
+  --brand: 123 114 238;
+  --brand-deep: 165 158 255;
+  --brand-soft: 27 33 64;
+
+  /* Foreground for text sitting ON a solid accent fill. Dark-mode accents are
+     light, so white text on them only reaches ~3.1:1 — near-black clears AA. */
+  --on-accent: 11 18 32;
+
+  --glow: 123 114 238;
+  --shadow-strength: 0.5;
+}
+
+:root[data-theme='light'] {
   color-scheme: light;
+
+  --ground: 238 241 246;
+  --surface: 255 255 255;
+  --ink: 18 38 63;
+  --muted: 91 107 127;
+  --rule: 211 218 228;
+
+  --ac: 14 124 102;
+  --warn: 199 125 34;
+  --miss: 163 59 74;
+
+  --brand: 79 70 229;
+  --brand-deep: 55 48 163;
+  --brand-soft: 238 240 255;
+
+  /* Light-mode accents are dark, so white sits on them comfortably. */
+  --on-accent: 255 255 255;
+
+  --glow: 79 70 229;
+  --shadow-strength: 0.14;
 }
 
 html,
@@ -14,17 +69,26 @@ body,
 
 body {
   margin: 0;
-  background-color: #eef1f6;
+  background-color: rgb(var(--ground));
   background-image:
-    radial-gradient(720px 420px at 4% -6%, rgba(79, 70, 229, 0.10), transparent 60%),
-    radial-gradient(640px 380px at 100% 0%, rgba(14, 124, 102, 0.08), transparent 55%),
-    linear-gradient(to right, rgba(18, 38, 63, 0.04) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(18, 38, 63, 0.04) 1px, transparent 1px);
+    radial-gradient(720px 420px at 4% -6%, rgb(var(--brand) / 0.16), transparent 60%),
+    radial-gradient(640px 380px at 100% 0%, rgb(var(--ac) / 0.12), transparent 55%),
+    linear-gradient(to right, rgb(var(--ink) / 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(var(--ink) / 0.04) 1px, transparent 1px);
   background-size: auto, auto, 22px 22px, 22px 22px;
   background-attachment: fixed, fixed, scroll, scroll;
-  color: #12263f;
+  color: rgb(var(--ink));
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+/* See applyTheme() in src/lib/theme.ts — transitions are suppressed for one
+   frame while the theme swaps, otherwise transitioned properties latch onto
+   the outgoing theme's colours. */
+.theme-swapping *,
+.theme-swapping *::before,
+.theme-swapping *::after {
+  transition: none !important;
 }
 
 @layer components {
@@ -41,19 +105,21 @@ body {
     @apply px-3 py-1.5 rounded-lg border border-rule bg-surface text-sm font-medium
            transition-all duration-150 hover:bg-ground hover:-translate-y-px
            active:translate-y-0 focus-visible:outline-none
-           focus-visible:ring-2 focus-visible:ring-brand/50;
+           focus-visible:ring-2 focus-visible:ring-brand/50
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0;
   }
   .btn-primary {
-    @apply bg-brand text-white border-brand shadow-glow hover:bg-brand-deep hover:border-brand-deep;
+    @apply bg-brand text-on-accent border-brand shadow-glow hover:bg-brand-deep hover:border-brand-deep;
   }
   .btn-ac {
-    @apply bg-ac text-white border-ac hover:bg-ac/90;
+    @apply bg-ac text-on-accent border-ac hover:bg-ac/90;
   }
   .btn-miss {
-    @apply bg-miss text-white border-miss hover:bg-miss/90;
+    @apply bg-miss text-on-accent border-miss hover:bg-miss/90;
   }
   .field {
-    @apply border border-rule rounded-lg px-2 py-1.5 text-sm bg-surface
+    @apply border border-rule rounded-lg px-2 py-1.5 text-sm bg-surface text-ink
+           placeholder:text-muted/70
            focus:outline-none focus:ring-2 focus:ring-brand/30;
   }
   .heading-gradient {
