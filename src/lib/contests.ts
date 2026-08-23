@@ -16,12 +16,16 @@ const CF_API = 'https://codeforces.com/api/contest.list?gym=false'
  * few hours; we read that first and only try the live API as a fallback (which
  * works in environments where CORS isn't enforced, e.g. a proxied deployment).
  */
-async function fromStaticFile(): Promise<Contest[]> {
+async function fromStaticFile(): Promise<{ contests: Contest[]; updatedAt: number | null }> {
   const res = await fetch(`${import.meta.env.BASE_URL}contests.json`, { cache: 'no-cache' })
   if (!res.ok) throw new Error(`contests.json returned ${res.status}`)
   const json = await res.json()
   if (!Array.isArray(json.contests)) throw new Error('contests.json is malformed')
-  return json.contests as Contest[]
+  const stamp = json.updatedAt ? Date.parse(json.updatedAt) : NaN
+  return {
+    contests: json.contests as Contest[],
+    updatedAt: Number.isFinite(stamp) ? stamp : null,
+  }
 }
 
 export async function fetchCodeforces(): Promise<Contest[]> {
@@ -132,13 +136,18 @@ export function leetcodeUpcoming(from = Date.now(), count = 4): Contest[] {
 export async function loadAllContests(limit = 14): Promise<{
   contests: Contest[]
   contestError: string | null
+  /** When the server-side job last refreshed contests.json, if known. */
+  updatedAt: number | null
 }> {
   const lc = leetcodeUpcoming()
   let fetched: Contest[] = []
   let contestError: string | null = null
+  let updatedAt: number | null = null
 
   try {
-    fetched = await fromStaticFile()
+    const file = await fromStaticFile()
+    fetched = file.contests
+    updatedAt = file.updatedAt
   } catch {
     // The static file (refreshed server-side every 6h) is unavailable — fall
     // back to live browser fetches, which only work where CORS isn't enforced.
@@ -159,7 +168,8 @@ export async function loadAllContests(limit = 14): Promise<{
       'them every 6 hours — until then, check those sites directly.'
   }
 
-  // Drop anything already finished, then keep the near horizon.
+  // Drop anything already finished, then keep the near horizon. Callers
+  // re-filter against a live clock too, since this list outlives the fetch.
   const now = Date.now()
   return {
     contests: [...lc, ...fetched]
@@ -167,8 +177,13 @@ export async function loadAllContests(limit = 14): Promise<{
       .sort((a, b) => a.startsAt - b.startsAt)
       .slice(0, limit),
     contestError,
+    updatedAt,
   }
 }
+
+/** True once a contest's end time has passed. */
+export const hasFinished = (c: Contest, now: number) =>
+  c.startsAt + c.durationMin * 60_000 <= now
 
 export function formatCountdown(ms: number): string {
   if (ms <= 0) return 'live now'

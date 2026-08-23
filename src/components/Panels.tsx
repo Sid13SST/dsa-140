@@ -9,6 +9,15 @@ const contestDateIso = (startsAt: number) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+/** Coarse "3h" / "2d" style age, for the freshness line on the contest panel. */
+function formatAge(ms: number): string {
+  const m = Math.max(0, Math.floor(ms / 60_000))
+  if (m < 60) return `${m}m`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h`
+  return `${Math.floor(h / 24)}d`
+}
+
 /** A small colour+initial chip. The initial is what keeps it readable for CVD. */
 export function PlatformBadge({ platform, className = '' }: { platform: Contest['platform']; className?: string }) {
   const p = PLATFORMS[platform]
@@ -186,22 +195,25 @@ export function ContestPanel({
   contests,
   contestError,
   loading,
+  now,
+  updatedAt,
 }: {
   contests: Contest[]
   contestError: string | null
   loading: boolean
+  /** Shared clock from App, so countdowns and the finished-contest filter agree. */
+  now: number
+  updatedAt: number | null
 }) {
-  const [tick, setTick] = useState(0)
   const [platformFilter, setPlatformFilter] = useState<Contest['platform'] | 'all'>('all')
 
-  useEffect(() => {
-    const t = setInterval(() => setTick((n) => n + 1), 60_000)
-    return () => clearInterval(t)
-  }, [])
-
-  const now = Date.now() + tick * 0
   const shown =
     platformFilter === 'all' ? contests : contests.filter((c) => c.platform === platformFilter)
+
+  // Codeforces/CodeChef/AtCoder come from a file a scheduled job rewrites every
+  // 6h, so surface its age — silently stale data is the failure mode here.
+  const ageMs = updatedAt === null ? null : now - updatedAt
+  const stale = ageMs !== null && ageMs > 12 * 60 * 60 * 1000
 
   return (
     <div className="card p-3">
@@ -258,6 +270,13 @@ export function ContestPanel({
 
       {contestError && (
         <p className="text-xs text-warn mb-2 leading-snug">{contestError}</p>
+      )}
+
+      {!loading && ageMs !== null && (
+        <p className={`font-mono text-[10px] mb-1.5 ${stale ? 'text-warn' : 'text-muted'}`}>
+          list updated {formatAge(ageMs)} ago
+          {stale && ' — the refresh job may not have run'}
+        </p>
       )}
 
       <ul className="divide-y divide-rule">
