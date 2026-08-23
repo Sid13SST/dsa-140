@@ -43,10 +43,51 @@ export const emptyDay = (): DayState => ({
   contestDone: false,
 })
 
+export type Platform = 'LeetCode' | 'Codeforces' | 'CodeChef' | 'AtCoder'
+
+/**
+ * Per-platform identity. `short` is the secondary encoding that makes the
+ * markers readable without relying on colour alone — the four hues sit in the
+ * 6-8 CVD band, which is only acceptable with a label alongside.
+ */
+export const PLATFORMS: Record<
+  Platform,
+  { short: string; dot: string; text: string; border: string; listUrl: string }
+> = {
+  LeetCode: {
+    short: 'LC',
+    dot: 'bg-platform-leetcode',
+    text: 'text-platform-leetcode',
+    border: 'border-platform-leetcode',
+    listUrl: 'https://leetcode.com/contest/',
+  },
+  Codeforces: {
+    short: 'CF',
+    dot: 'bg-platform-codeforces',
+    text: 'text-platform-codeforces',
+    border: 'border-platform-codeforces',
+    listUrl: 'https://codeforces.com/contests',
+  },
+  CodeChef: {
+    short: 'CC',
+    dot: 'bg-platform-codechef',
+    text: 'text-platform-codechef',
+    border: 'border-platform-codechef',
+    listUrl: 'https://www.codechef.com/contests',
+  },
+  AtCoder: {
+    short: 'AC',
+    dot: 'bg-platform-atcoder',
+    text: 'text-platform-atcoder',
+    border: 'border-platform-atcoder',
+    listUrl: 'https://atcoder.jp/contests/',
+  },
+}
+
 export interface Contest {
   id: string
   name: string
-  platform: 'LeetCode' | 'Codeforces' | 'CodeChef'
+  platform: Platform
   startsAt: number // epoch ms
   durationMin: number
   url: string

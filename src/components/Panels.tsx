@@ -1,6 +1,28 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Contest, Day, Progress } from '../types'
-import { formatCountdown, loadAllContests } from '../lib/contests'
+import { PLATFORMS } from '../types'
+import { formatCountdown } from '../lib/contests'
+
+/** Local YYYY-MM-DD for a contest's start, so it lands on the right calendar cell. */
+const contestDateIso = (startsAt: number) => {
+  const d = new Date(startsAt)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** A small colour+initial chip. The initial is what keeps it readable for CVD. */
+export function PlatformBadge({ platform, className = '' }: { platform: Contest['platform']; className?: string }) {
+  const p = PLATFORMS[platform]
+  return (
+    <span
+      className={`inline-flex items-center gap-1 font-mono text-[9px] uppercase tracking-wide
+        px-1 py-0.5 rounded border ${p.text} ${p.border} ${className}`}
+      style={{ backgroundColor: 'rgb(var(--surface))' }}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full ${p.dot}`} />
+      {p.short}
+    </span>
+  )
+}
 
 /* ------------------------------ Calendar ------------------------------ */
 
@@ -10,9 +32,28 @@ interface CalProps {
   todayIso: string
   selected: string
   onSelect: (iso: string) => void
+  contests: Contest[]
 }
 
-export function CalendarView({ schedule, progress, todayIso, selected, onSelect }: CalProps) {
+export function CalendarView({
+  schedule,
+  progress,
+  todayIso,
+  selected,
+  onSelect,
+  contests,
+}: CalProps) {
+  // Contests grouped by the day they start, for the per-cell markers.
+  const contestsByDate = useMemo(() => {
+    const map = new Map<string, Contest[]>()
+    for (const c of contests) {
+      const key = contestDateIso(c.startsAt)
+      const list = map.get(key)
+      if (list) list.push(c)
+      else map.set(key, [c])
+    }
+    return map
+  }, [contests])
   const byDate = useMemo(() => new Map(schedule.map((d) => [d.date, d])), [schedule])
   const months = useMemo(() => {
     const set = new Set(schedule.map((d) => d.date.slice(0, 7)))
@@ -78,25 +119,62 @@ export function CalendarView({ schedule, progress, todayIso, selected, onSelect 
             else tone = 'bg-surface border-rule'
           }
 
+          const dayContests = contestsByDate.get(iso) ?? []
+          // One dot per platform, so two LeetCode rounds don't render twice.
+          const platforms = [...new Set(dayContests.map((c) => c.platform))]
+          const contestTitle = dayContests
+            .map(
+              (c) =>
+                `${PLATFORMS[c.platform].short} · ${c.name} · ${new Date(
+                  c.startsAt,
+                ).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false })}`,
+            )
+            .join('\n')
+
           return (
             <button
               key={i}
               disabled={!day}
               onClick={() => day && onSelect(iso)}
-              title={day ? `Day ${day.day} · ${day.topic}` : 'Outside the plan'}
+              title={
+                [day ? `Day ${day.day} · ${day.topic}` : 'Outside the plan', contestTitle]
+                  .filter(Boolean)
+                  .join('\n') || undefined
+              }
               className={`aspect-square rounded-md border font-mono text-xs flex flex-col
-                items-center justify-center disabled:cursor-default
+                items-center justify-center gap-0.5 disabled:cursor-default
                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand
                 ${tone} ${iso === selected ? 'ring-2 ring-brand' : ''}
                 ${iso === todayIso ? 'font-bold underline' : ''}`}
             >
-              <span>{dayNum}</span>
+              <span className="leading-none">{dayNum}</span>
               {day && day.problems.length > 0 && (
-                <span className="text-[9px] opacity-70">{day.problems.length}p</span>
+                <span className="text-[9px] opacity-70 leading-none">{day.problems.length}p</span>
+              )}
+              {platforms.length > 0 && (
+                <span className="flex gap-[2px] leading-none">
+                  {platforms.map((p) => (
+                    <span
+                      key={p}
+                      className={`w-1.5 h-1.5 rounded-full ${PLATFORMS[p].dot}`}
+                      aria-label={`${p} contest`}
+                    />
+                  ))}
+                </span>
               )}
             </button>
           )
         })}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 pt-2 border-t border-rule">
+        <span className="eyebrow">contests</span>
+        {(Object.keys(PLATFORMS) as (keyof typeof PLATFORMS)[]).map((p) => (
+          <span key={p} className="flex items-center gap-1 text-[11px] text-muted">
+            <span className={`w-1.5 h-1.5 rounded-full ${PLATFORMS[p].dot}`} />
+            {p}
+          </span>
+        ))}
       </div>
     </div>
   )
@@ -104,25 +182,17 @@ export function CalendarView({ schedule, progress, todayIso, selected, onSelect 
 
 /* ------------------------------ Contests ------------------------------ */
 
-export function ContestPanel() {
-  const [contests, setContests] = useState<Contest[]>([])
-  const [contestError, setContestError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+export function ContestPanel({
+  contests,
+  contestError,
+  loading,
+}: {
+  contests: Contest[]
+  contestError: string | null
+  loading: boolean
+}) {
   const [tick, setTick] = useState(0)
-
-  useEffect(() => {
-    let alive = true
-    loadAllContests()
-      .then((r) => {
-        if (!alive) return
-        setContests(r.contests)
-        setContestError(r.contestError)
-      })
-      .finally(() => alive && setLoading(false))
-    return () => {
-      alive = false
-    }
-  }, [])
+  const [platformFilter, setPlatformFilter] = useState<Contest['platform'] | 'all'>('all')
 
   useEffect(() => {
     const t = setInterval(() => setTick((n) => n + 1), 60_000)
@@ -130,29 +200,58 @@ export function ContestPanel() {
   }, [])
 
   const now = Date.now() + tick * 0
+  const shown =
+    platformFilter === 'all' ? contests : contests.filter((c) => c.platform === platformFilter)
 
   return (
     <div className="card p-3">
-      <div className="flex items-baseline justify-between mb-2">
+      <div className="flex items-baseline justify-between mb-2 gap-2">
         <span className="eyebrow">upcoming contests</span>
-        <div className="flex items-center gap-2">
-          <a
-            href="https://codeforces.com/contests"
-            target="_blank"
-            rel="noreferrer"
-            className="font-mono text-[10px] text-muted hover:text-ink underline"
-          >
-            codeforces ↗
-          </a>
-          <a
-            href="https://www.codechef.com/contests"
-            target="_blank"
-            rel="noreferrer"
-            className="font-mono text-[10px] text-muted hover:text-ink underline"
-          >
-            codechef ↗
-          </a>
+        <div className="flex items-center gap-1.5 flex-wrap justify-end">
+          {(Object.keys(PLATFORMS) as (keyof typeof PLATFORMS)[]).map((p) => (
+            <a
+              key={p}
+              href={PLATFORMS[p].listUrl}
+              target="_blank"
+              rel="noreferrer"
+              title={`Open ${p} contests`}
+              className={`font-mono text-[10px] hover:underline ${PLATFORMS[p].text}`}
+            >
+              {PLATFORMS[p].short} ↗
+            </a>
+          ))}
         </div>
+      </div>
+
+      <div className="flex gap-1 mb-2 flex-wrap">
+        <button
+          onClick={() => setPlatformFilter('all')}
+          className={`font-mono text-[10px] px-1.5 py-0.5 rounded border transition-colors ${
+            platformFilter === 'all'
+              ? 'bg-brand text-on-accent border-brand'
+              : 'text-muted border-rule hover:text-ink'
+          }`}
+        >
+          ALL {contests.length}
+        </button>
+        {(Object.keys(PLATFORMS) as (keyof typeof PLATFORMS)[]).map((p) => {
+          const n = contests.filter((c) => c.platform === p).length
+          const active = platformFilter === p
+          return (
+            <button
+              key={p}
+              onClick={() => setPlatformFilter(active ? 'all' : p)}
+              disabled={n === 0}
+              title={p}
+              className={`font-mono text-[10px] px-1.5 py-0.5 rounded border transition-colors
+                flex items-center gap-1 disabled:opacity-35 disabled:cursor-not-allowed
+                ${active ? `${PLATFORMS[p].text} ${PLATFORMS[p].border}` : 'text-muted border-rule hover:text-ink'}`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${PLATFORMS[p].dot}`} />
+              {PLATFORMS[p].short} {n}
+            </button>
+          )
+        })}
       </div>
 
       {loading && <p className="text-sm text-muted py-2">Loading contests…</p>}
@@ -162,18 +261,13 @@ export function ContestPanel() {
       )}
 
       <ul className="divide-y divide-rule">
-        {contests.map((c) => {
+        {shown.map((c) => {
           const dt = new Date(c.startsAt)
           return (
-            <li key={c.id} className="py-2 flex items-center gap-3">
+            <li key={c.id} className="py-2 flex items-center gap-2.5">
               <span
-                className={`w-1.5 h-8 rounded-full shrink-0 ${
-                  c.platform === 'LeetCode'
-                    ? 'bg-warn'
-                    : c.platform === 'CodeChef'
-                      ? 'bg-ac'
-                      : 'bg-ink'
-                }`}
+                className={`w-1.5 h-9 rounded-full shrink-0 ${PLATFORMS[c.platform].dot}`}
+                aria-hidden="true"
               />
               <div className="flex-1 min-w-0">
                 <a
@@ -184,19 +278,25 @@ export function ContestPanel() {
                 >
                   {c.name}
                 </a>
-                <div className="font-mono text-[11px] text-muted">
-                  {dt.toLocaleString(undefined, {
-                    weekday: 'short',
-                    day: '2-digit',
-                    month: 'short',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: false,
-                  })}{' '}
-                  · {c.durationMin}m
+                <div className="font-mono text-[11px] text-muted flex items-center gap-1.5 flex-wrap">
+                  <PlatformBadge platform={c.platform} />
+                  <span>
+                    {dt.toLocaleString(undefined, {
+                      weekday: 'short',
+                      day: '2-digit',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: false,
+                    })}{' '}
+                    · {c.durationMin}m
+                  </span>
                   {c.computed && (
-                    <span className="ml-1 text-warn" title="Derived from LeetCode's fixed recurring schedule, not fetched live. Confirm on leetcode.com.">
-                      ·  recurring
+                    <span
+                      className="text-warn"
+                      title="Derived from LeetCode's fixed recurring schedule, not fetched live. Confirm on leetcode.com."
+                    >
+                      · recurring
                     </span>
                   )}
                 </div>
@@ -209,10 +309,11 @@ export function ContestPanel() {
         })}
       </ul>
 
-      {!loading && contests.length === 0 && (
+      {!loading && shown.length === 0 && (
         <p className="text-sm text-muted py-2">
-          No contests found. Check codeforces.com/contests, codechef.com/contests, and
-          leetcode.com/contest directly.
+          {contests.length === 0
+            ? 'No contests found. Check the platform links above directly.'
+            : `No upcoming ${platformFilter} contests in this window.`}
         </p>
       )}
     </div>

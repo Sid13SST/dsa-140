@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { SCHEDULE, TOTAL_DAYS } from './data/schedule'
 import type { DayState, Progress } from './types'
 import { emptyDay } from './types'
+import type { Contest } from './types'
 import { exportJSON, importJSON, loadLocal, saveLocal } from './lib/storage'
+import { loadAllContests } from './lib/contests'
 import { useTheme } from './lib/theme'
 import Header from './components/Header'
 import { ConsistencyGrid, StatsBar } from './components/Overview'
@@ -37,6 +39,31 @@ export default function App() {
   useEffect(() => {
     saveLocal(progress)
   }, [progress])
+
+  /*
+   * Contests load once here and are shared by the contest panel and the
+   * calendar's per-day markers — two components fetching the same list would
+   * mean two requests for identical data.
+   */
+  const [contests, setContests] = useState<Contest[]>([])
+  const [contestError, setContestError] = useState<string | null>(null)
+  const [contestsLoading, setContestsLoading] = useState(true)
+
+  useEffect(() => {
+    let alive = true
+    // A wider window than the panel shows, so the calendar can mark contests
+    // further out than the next fortnight.
+    loadAllContests(60)
+      .then((r) => {
+        if (!alive) return
+        setContests(r.contests)
+        setContestError(r.contestError)
+      })
+      .finally(() => alive && setContestsLoading(false))
+    return () => {
+      alive = false
+    }
+  }, [])
 
   const setDay = useCallback((date: string, next: DayState) => {
     setProgress((p) => ({ ...p, [date]: next }))
@@ -162,7 +189,10 @@ export default function App() {
 
         {tab === 'today' && (
           <div className="grid lg:grid-cols-3 gap-3 items-start">
-            <div className="lg:col-span-2">
+            {/* min-w-0: grid items default to min-width:auto, so a wide child
+                (a long resource label) would otherwise stretch the track past
+                the viewport instead of truncating. */}
+            <div className="lg:col-span-2 min-w-0">
               <DayPanel
                 day={selectedDay}
                 state={progress[selectedDay.date] ?? emptyDay()}
@@ -170,9 +200,13 @@ export default function App() {
                 onJump={jump}
               />
             </div>
-            <div className="space-y-3">
+            <div className="space-y-3 min-w-0">
               <DayResources day={selectedDay} />
-              <ContestPanel />
+              <ContestPanel
+                contests={contests.slice(0, 14)}
+                contestError={contestError}
+                loading={contestsLoading}
+              />
             </div>
           </div>
         )}
@@ -193,6 +227,7 @@ export default function App() {
                 todayIso={todayIso}
                 selected={selected}
                 onSelect={setSelected}
+                contests={contests}
               />
               <TopicProgress schedule={SCHEDULE} progress={progress} />
               <div className="space-y-3">{backlogPanel}</div>

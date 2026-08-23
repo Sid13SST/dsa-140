@@ -129,7 +129,7 @@ export function leetcodeUpcoming(from = Date.now(), count = 4): Contest[] {
   )
 }
 
-export async function loadAllContests(): Promise<{
+export async function loadAllContests(limit = 14): Promise<{
   contests: Contest[]
   contestError: string | null
 }> {
@@ -142,22 +142,21 @@ export async function loadAllContests(): Promise<{
   } catch {
     // The static file (refreshed server-side every 6h) is unavailable — fall
     // back to live browser fetches, which only work where CORS isn't enforced.
+    // AtCoder has no fallback: it's scraped from HTML, which a browser can't do
+    // cross-origin, so it appears only when the static file is available.
     const [cf, cc] = await Promise.allSettled([fetchCodeforces(), fetchCodeChef()])
     if (cf.status === 'fulfilled') fetched.push(...cf.value)
     if (cc.status === 'fulfilled') fetched.push(...cc.value)
-    if (cf.status === 'rejected' && cc.status === 'rejected') {
-      contestError =
-        "Codeforces and CodeChef rounds aren't loading. The scheduled job refreshes them every 6 hours — " +
-        'until then, check codeforces.com/contests and codechef.com/contests directly.'
-    } else if (cf.status === 'rejected') {
-      contestError =
-        "Codeforces rounds aren't loading right now. The scheduled job refreshes them every 6 hours — " +
-        'until then, check codeforces.com/contests directly.'
-    } else if (cc.status === 'rejected') {
-      contestError =
-        "CodeChef rounds aren't loading right now. The scheduled job refreshes them every 6 hours — " +
-        'until then, check codechef.com/contests directly.'
-    }
+
+    const failed = [
+      cf.status === 'rejected' && 'Codeforces',
+      cc.status === 'rejected' && 'CodeChef',
+      'AtCoder',
+    ].filter(Boolean) as string[]
+
+    contestError =
+      `${failed.join(', ')} rounds aren't loading right now. The scheduled job refreshes ` +
+      'them every 6 hours — until then, check those sites directly.'
   }
 
   // Drop anything already finished, then keep the near horizon.
@@ -166,7 +165,7 @@ export async function loadAllContests(): Promise<{
     contests: [...lc, ...fetched]
       .filter((c) => c.startsAt + c.durationMin * 60_000 > now)
       .sort((a, b) => a.startsAt - b.startsAt)
-      .slice(0, 14),
+      .slice(0, limit),
     contestError,
   }
 }
