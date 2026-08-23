@@ -4,7 +4,8 @@ import type { DayState, Progress } from './types'
 import { emptyDay } from './types'
 import type { Contest } from './types'
 import { exportJSON, importJSON, loadLocal, saveLocal } from './lib/storage'
-import { loadAllContests } from './lib/contests'
+import { hasFinished, loadAllContests } from './lib/contests'
+import { useNow } from './lib/useNow'
 import { useTheme } from './lib/theme'
 import Header from './components/Header'
 import { ConsistencyGrid, StatsBar } from './components/Overview'
@@ -26,10 +27,17 @@ function resolveToday(todayIso: string) {
   return SCHEDULE[SCHEDULE.length - 1].date
 }
 
+/** How often the browser re-reads contests.json; the server job refreshes it every 6h. */
+const CONTEST_REFRESH_MS = 30 * 60 * 1000
+
 export default function App() {
-  const todayIso = iso(new Date())
+  // A live clock, so nothing derived from "today" freezes at mount. The string
+  // only changes value at midnight, so downstream memos stay stable.
+  const now = useNow()
+  const todayIso = useMemo(() => iso(new Date(now)), [now])
+
   const [progress, setProgress] = useState<Progress>(() => loadLocal())
-  const [selected, setSelected] = useState(() => resolveToday(todayIso))
+  const [selected, setSelected] = useState(() => resolveToday(iso(new Date())))
   const [generatingPdf, setGeneratingPdf] = useState(false)
   const [tab, setTab] = useState<TabId>('today')
   const fileRef = useRef<HTMLInputElement>(null)
@@ -45,25 +53,53 @@ export default function App() {
    * calendar's per-day markers — two components fetching the same list would
    * mean two requests for identical data.
    */
-  const [contests, setContests] = useState<Contest[]>([])
+  const [fetchedContests, setFetchedContests] = useState<Contest[]>([])
   const [contestError, setContestError] = useState<string | null>(null)
+  const [contestsUpdatedAt, setContestsUpdatedAt] = useState<number | null>(null)
   const [contestsLoading, setContestsLoading] = useState(true)
+  const lastFetchRef = useRef(0)
 
   useEffect(() => {
     let alive = true
-    // A wider window than the panel shows, so the calendar can mark contests
-    // further out than the next fortnight.
-    loadAllContests(60)
-      .then((r) => {
-        if (!alive) return
-        setContests(r.contests)
-        setContestError(r.contestError)
-      })
-      .finally(() => alive && setContestsLoading(false))
+
+    const load = () => {
+      lastFetchRef.current = Date.now()
+      // A wider window than the panel shows, so the calendar can mark contests
+      // further out than the next fortnight.
+      return loadAllContests(60)
+        .then((r) => {
+          if (!alive) return
+          setFetchedContests(r.contests)
+          setContestError(r.contestError)
+          setContestsUpdatedAt(r.updatedAt)
+        })
+        .finally(() => alive && setContestsLoading(false))
+    }
+
+    void load()
+    const id = setInterval(load, CONTEST_REFRESH_MS)
+    // Background tabs throttle intervals, so also catch up on refocus rather
+    // than showing a list that stopped updating hours ago.
+    const onWake = () => {
+      if (!document.hidden && Date.now() - lastFetchRef.current >= CONTEST_REFRESH_MS) void load()
+    }
+    document.addEventListener('visibilitychange', onWake)
+    window.addEventListener('focus', onWake)
+
     return () => {
       alive = false
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', onWake)
+      window.removeEventListener('focus', onWake)
     }
   }, [])
+
+  // Re-filter against the live clock: the fetch already dropped finished
+  // contests, but that was true only at fetch time.
+  const contests = useMemo(
+    () => fetchedContests.filter((c) => !hasFinished(c, now)),
+    [fetchedContests, now],
+  )
 
   const setDay = useCallback((date: string, next: DayState) => {
     setProgress((p) => ({ ...p, [date]: next }))
@@ -206,6 +242,8 @@ export default function App() {
                 contests={contests.slice(0, 14)}
                 contestError={contestError}
                 loading={contestsLoading}
+                now={now}
+                updatedAt={contestsUpdatedAt}
               />
             </div>
           </div>
