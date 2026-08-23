@@ -33,6 +33,15 @@
      light, so white text on them only reaches ~3.1:1 — near-black clears AA. */
   --on-accent: 11 18 32;
 
+  /* Contest platform identity. Four hues at one lightness is genuinely hard for
+     red-green CVD, so these were tuned with the palette validator: all pairs
+     clear >=3:1 on the surface and sit in the 6-8 CVD band, which is only legal
+     alongside secondary encoding — hence the platform initials on every marker. */
+  --p-leetcode: 188 140 20;
+  --p-codeforces: 90 147 224;
+  --p-codechef: 207 99 156;
+  --p-atcoder: 20 145 107;
+
   --glow: 123 114 238;
   --shadow-strength: 0.5;
 }
@@ -56,6 +65,11 @@
 
   /* Light-mode accents are dark, so white sits on them comfortably. */
   --on-accent: 255 255 255;
+
+  --p-leetcode: 165 120 15;
+  --p-codeforces: 47 115 196;
+  --p-codechef: 190 74 140;
+  --p-atcoder: 15 128 98;
 
   --glow: 79 70 229;
   --shadow-strength: 0.14;

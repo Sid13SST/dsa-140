@@ -141,7 +141,9 @@ export default function ResourceLibrary({ schedule }: { schedule: Day[] }) {
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 items-start">
         {groups.map((g) => (
-          <div key={g.topic} className="card card-hover p-3">
+          // min-w-0 so a long resource label truncates instead of widening the
+          // grid track past the viewport.
+          <div key={g.topic} className="card card-hover p-3 min-w-0">
             <div className="flex items-baseline justify-between mb-1">
               <span className="font-display font-bold text-sm">{g.topic}</span>
               <span className="font-mono text-[10px] text-muted">{g.items.length}</span>

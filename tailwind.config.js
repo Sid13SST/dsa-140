@@ -22,6 +22,12 @@ export default {
           soft: 'rgb(var(--brand-soft) / <alpha-value>)',
           deep: 'rgb(var(--brand-deep) / <alpha-value>)',
         },
+        platform: {
+          leetcode: 'rgb(var(--p-leetcode) / <alpha-value>)',
+          codeforces: 'rgb(var(--p-codeforces) / <alpha-value>)',
+          codechef: 'rgb(var(--p-codechef) / <alpha-value>)',
+          atcoder: 'rgb(var(--p-atcoder) / <alpha-value>)',
+        },
       },
       fontFamily: {
         display: ['Sora', 'system-ui', 'sans-serif'],
