@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { SCHEDULE, TOTAL_DAYS } from './data/schedule'
 import type { DayState, Progress } from './types'
 import { emptyDay } from './types'
@@ -25,6 +25,9 @@ import Tabs from './components/Tabs'
 import ResourceLibrary, { DayResources } from './components/Resources'
 import SystemDesign from './components/SystemDesign'
 import SdPractice from './components/SdPractice'
+// The Anthropic SDK is ~250kB and only needed in interview mode, so it loads
+// on demand rather than in the initial bundle.
+const AiInterview = lazy(() => import('./components/AiInterview'))
 import { CalendarView, ContestPanel, TopicProgress } from './components/Panels'
 
 type TabId = 'today' | 'progress' | 'analytics' | 'learn' | 'design'
@@ -81,7 +84,7 @@ export default function App() {
   }, [])
 
   // Which half of the Design tab is showing: the reading queue or the questions.
-  const [designMode, setDesignMode] = useState<'study' | 'practice'>('study')
+  const [designMode, setDesignMode] = useState<'study' | 'practice' | 'interview'>('study')
 
   /*
    * Contests load once here and are shared by the contest panel and the
@@ -364,7 +367,7 @@ export default function App() {
         {tab === 'design' && (
           <div className="space-y-3">
             <div className="card p-1 flex gap-1">
-              {(['study', 'practice'] as const).map((m) => (
+              {(['study', 'practice', 'interview'] as const).map((m) => (
                 <button
                   key={m}
                   onClick={() => setDesignMode(m)}
@@ -376,15 +379,23 @@ export default function App() {
                         : 'text-muted hover:text-ink hover:bg-ground'
                     }`}
                 >
-                  {m === 'study' ? 'Study' : 'Practice'}
+                  {m === 'study' ? 'Study' : m === 'practice' ? 'Practice' : 'AI Interview'}
                 </button>
               ))}
             </div>
 
-            {designMode === 'study' ? (
+            {designMode === 'study' && (
               <SystemDesign progress={sdProgress} onToggle={toggleSdDay} />
-            ) : (
+            )}
+            {designMode === 'practice' && (
               <SdPractice progress={sdQuiz} onChange={setSdAttempt} />
+            )}
+            {designMode === 'interview' && (
+              <Suspense
+                fallback={<div className="card p-6 text-center text-sm text-muted">Loading…</div>}
+              >
+                <AiInterview />
+              </Suspense>
             )}
           </div>
         )}

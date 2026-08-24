@@ -1,0 +1,379 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { SD_QUESTIONS, TIERS, type QTier, type SdQuestion } from '../data/sdPractice'
+import { graderSystem, interviewerSystem } from '../lib/interviewPrompt'
+import {
+  completeOnce,
+  hasApiKey,
+  loadApiKey,
+  saveApiKey,
+  streamReply,
+  testKey,
+  type Turn,
+} from '../lib/aiClient'
+import Whiteboard from './Whiteboard'
+
+const MINUTES = 45
+
+const TIER_TONE: Record<QTier, string> = {
+  warmup: 'text-ac border-ac/40 bg-ac/10',
+  core: 'text-brand-deep border-brand/40 bg-brand/10',
+  hard: 'text-miss border-miss/40 bg-miss/10',
+}
+
+/* ------------------------------ key setup ------------------------------ */
+
+function KeySetup({ onReady }: { onReady: () => void }) {
+  const [key, setKey] = useState(loadApiKey())
+  const [state, setState] = useState<'idle' | 'testing' | 'bad'>('idle')
+  const [err, setErr] = useState<string | null>(null)
+
+  const check = async () => {
+    setState('testing')
+    setErr(null)
+    saveApiKey(key.trim())
+    const r = await testKey()
+    if (r.ok) onReady()
+    else {
+      setState('bad')
+      setErr(r.error)
+    }
+  }
+
+  return (
+    <div className="card p-4">
+      <span className="eyebrow">one-time setup</span>
+      <h3 className="font-display font-bold text-lg mt-1">Add your Anthropic API key</h3>
+      <p className="text-sm text-muted mt-1.5">
+        This app has no backend, so the interview calls Anthropic directly from your browser with
+        your own key. It is stored only in this browser's localStorage — never committed, never
+        bundled, never sent anywhere but Anthropic.
+      </p>
+
+      <input
+        type="password"
+        value={key}
+        onChange={(e) => setKey(e.target.value)}
+        placeholder="sk-ant-…"
+        className="field w-full mt-3 font-mono text-xs"
+        aria-label="Anthropic API key"
+      />
+      <div className="flex flex-wrap gap-2 mt-2">
+        <button className="btn btn-primary" onClick={check} disabled={!key.trim() || state === 'testing'}>
+          {state === 'testing' ? 'Checking…' : 'Save and check'}
+        </button>
+        <a
+          href="https://console.anthropic.com/settings/keys"
+          target="_blank"
+          rel="noreferrer"
+          className="btn text-xs"
+        >
+          Get a key ↗
+        </a>
+      </div>
+      {err && <p className="text-xs text-miss mt-2">{err}</p>}
+
+      <p className="text-[11px] text-muted mt-3 pt-3 border-t border-rule">
+        Cost is roughly <strong>$0.30–0.60</strong> per full 45-minute interview on Opus, so the
+        whole bank of {SD_QUESTIONS.length} runs to about $10–15. Use a key you can rotate, and
+        set a spend limit in the console if you want a hard cap.
+      </p>
+    </div>
+  )
+}
+
+/* ------------------------------- the room ------------------------------ */
+
+interface RoomProps {
+  q: SdQuestion
+  onExit: () => void
+}
+
+function Room({ q, onExit }: RoomProps) {
+  const [turns, setTurns] = useState<Turn[]>([])
+  const [streaming, setStreaming] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [input, setInput] = useState('')
+  const [elapsed, setElapsed] = useState(0)
+  const [running, setRunning] = useState(false)
+  const [grade, setGrade] = useState<string | null>(null)
+  const [err, setErr] = useState<string | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
+  const logRef = useRef<HTMLDivElement>(null)
+
+  const system = useMemo(() => interviewerSystem(q, MINUTES), [q])
+
+  useEffect(() => {
+    if (!running) return
+    const id = setInterval(() => setElapsed((e) => e + 1), 1000)
+    return () => clearInterval(id)
+  }, [running])
+
+  useEffect(() => {
+    logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' })
+  }, [turns, streaming])
+
+  const send = async (text: string, imageBase64?: string) => {
+    if (busy) return
+    setErr(null)
+    const next: Turn[] = [
+      ...turns,
+      {
+        role: 'user',
+        text,
+        ...(imageBase64 ? { image: { mediaType: 'image/png' as const, base64: imageBase64 } } : {}),
+      },
+    ]
+    setTurns(next)
+    setInput('')
+    setBusy(true)
+    setStreaming('')
+    abortRef.current = new AbortController()
+    try {
+      const full = await streamReply(system, next, (d) => setStreaming((s) => s + d), abortRef.current.signal)
+      setTurns([...next, { role: 'assistant', text: full }])
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'The request failed.')
+      // Drop the unanswered user turn so a retry doesn't duplicate it.
+      setTurns(next.slice(0, -1))
+      setInput(text)
+    } finally {
+      setStreaming('')
+      setBusy(false)
+    }
+  }
+
+  const begin = async () => {
+    setRunning(true)
+    await send("I'm ready to start.")
+  }
+
+  const finish = async () => {
+    setRunning(false)
+    setBusy(true)
+    setErr(null)
+    try {
+      const transcript = turns
+        .map((t) => `${t.role === 'user' ? 'CANDIDATE' : 'INTERVIEWER'}: ${t.text}`)
+        .join('\n\n')
+      const out = await completeOnce(
+        graderSystem(q),
+        [{ role: 'user', text: `Here is the full transcript.\n\n${transcript}` }],
+        4000,
+      )
+      setGrade(out)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Grading failed.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const mm = String(Math.floor(elapsed / 60)).padStart(2, '0')
+  const ss = String(elapsed % 60).padStart(2, '0')
+  const over = elapsed > MINUTES * 60
+
+  return (
+    <div className="space-y-3">
+      <div className="card p-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <h3 className="font-display font-bold">{q.title}</h3>
+            <span
+              className={`font-mono text-[9px] uppercase px-1 py-0.5 rounded border ${TIER_TONE[q.tier]}`}
+            >
+              {q.tier}
+            </span>
+          </div>
+          <p className="text-[11px] text-muted mt-0.5">{q.scope}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={`font-mono text-lg font-bold tabular-nums ${over ? 'text-miss' : ''}`}>
+            {mm}:{ss}
+          </span>
+          {turns.length === 0 ? (
+            <button className="btn btn-primary text-xs" onClick={begin} disabled={busy}>
+              Start interview
+            </button>
+          ) : (
+            <button className="btn text-xs" onClick={finish} disabled={busy || !!grade}>
+              End & grade
+            </button>
+          )}
+          <button className="btn text-xs" onClick={onExit}>
+            Exit
+          </button>
+        </div>
+      </div>
+
+      {err && (
+        <div className="card p-3 border-miss/40">
+          <p className="text-xs text-miss">{err}</p>
+        </div>
+      )}
+
+      <div className="grid lg:grid-cols-2 gap-3 items-start">
+        <div className="card p-3 min-w-0">
+          <span className="eyebrow">interview</span>
+          <div ref={logRef} className="mt-2 space-y-3 max-h-[52vh] overflow-y-auto pr-1">
+            {turns.length === 0 && !streaming && (
+              <p className="text-sm text-muted py-6 text-center">
+                Press <strong>Start interview</strong>. Treat it like the real thing — clarify
+                first, then design. It will not go easy on you.
+              </p>
+            )}
+            {turns.map((t, i) => (
+              <div key={i} className={t.role === 'user' ? 'text-right' : ''}>
+                <span className="eyebrow">{t.role === 'user' ? 'you' : 'interviewer'}</span>
+                <p
+                  className={`text-[13px] leading-relaxed whitespace-pre-wrap mt-0.5 rounded-lg px-2.5 py-1.5 inline-block text-left ${
+                    t.role === 'user' ? 'bg-brand/10' : 'bg-ground'
+                  }`}
+                >
+                  {t.text}
+                </p>
+                {t.image && (
+                  <span className="block font-mono text-[10px] text-muted mt-0.5">
+                    · whiteboard attached
+                  </span>
+                )}
+              </div>
+            ))}
+            {streaming && (
+              <div>
+                <span className="eyebrow">interviewer</span>
+                <p className="text-[13px] leading-relaxed whitespace-pre-wrap mt-0.5 bg-ground rounded-lg px-2.5 py-1.5">
+                  {streaming}
+                  <span className="animate-pulse">▊</span>
+                </p>
+              </div>
+            )}
+          </div>
+
+          {!grade && (
+            <div className="mt-3 pt-3 border-t border-rule">
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && input.trim()) send(input.trim())
+                }}
+                rows={3}
+                disabled={busy || turns.length === 0}
+                placeholder={
+                  turns.length === 0 ? 'Start the interview first…' : 'Your answer… (Ctrl+Enter to send)'
+                }
+                className="field w-full resize-y text-[13px]"
+              />
+              <button
+                className="btn btn-primary w-full mt-1.5"
+                onClick={() => input.trim() && send(input.trim())}
+                disabled={busy || !input.trim()}
+              >
+                {busy ? 'Thinking…' : 'Send'}
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="min-w-0">
+          <Whiteboard
+            busy={busy || turns.length === 0}
+            onSnapshot={(b64) =>
+              send(input.trim() || 'Here is my diagram so far — what do you think?', b64)
+            }
+          />
+        </div>
+      </div>
+
+      {grade && (
+        <div className="card p-4">
+          <span className="eyebrow">your grade</span>
+          <div className="mt-2 text-[13px] leading-relaxed whitespace-pre-wrap">{grade}</div>
+          <button className="btn mt-3 text-xs" onClick={onExit}>
+            Back to the question list
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ------------------------------ the picker ----------------------------- */
+
+export default function AiInterview() {
+  const [keyReady, setKeyReady] = useState(hasApiKey())
+  const [openId, setOpenId] = useState<string | null>(null)
+  const [tier, setTier] = useState<QTier | 'all'>('all')
+
+  if (!keyReady) return <KeySetup onReady={() => setKeyReady(true)} />
+
+  const open = openId ? SD_QUESTIONS.find((q) => q.id === openId) ?? null : null
+  if (open) return <Room q={open} onExit={() => setOpenId(null)} />
+
+  const visible = SD_QUESTIONS.filter((q) => tier === 'all' || q.tier === tier)
+
+  return (
+    <div className="space-y-3">
+      <div className="card p-3">
+        <div className="flex items-baseline justify-between gap-2 flex-wrap">
+          <span className="eyebrow">ai interviewer</span>
+          <button className="btn text-xs" onClick={() => setKeyReady(false)}>
+            API key
+          </button>
+        </div>
+        <p className="text-[13px] mt-1.5">
+          A strict {MINUTES}-minute mock round. It asks one question at a time, goes after your
+          weakest answer, and will not accept "we'll just cache it". You get a whiteboard, and it
+          reads what you draw.
+        </p>
+        <p className="text-[11px] text-muted mt-1.5">
+          It grades you at the end against the same rubric as self-practice — but from the
+          transcript, so it can only credit what you actually said.
+        </p>
+      </div>
+
+      <div className="card p-3">
+        <div className="flex flex-wrap gap-2 mb-2">
+          <button
+            onClick={() => setTier('all')}
+            className={`btn text-xs ${tier === 'all' ? 'btn-primary' : ''}`}
+          >
+            All {SD_QUESTIONS.length}
+          </button>
+          {TIERS.map((t) => (
+            <button
+              key={t}
+              onClick={() => setTier(tier === t ? 'all' : t)}
+              className={`btn text-xs capitalize ${tier === t ? 'btn-primary' : ''}`}
+            >
+              {t} {SD_QUESTIONS.filter((x) => x.tier === t).length}
+            </button>
+          ))}
+        </div>
+
+        <ul className="divide-y divide-rule/60">
+          {visible.map((q) => (
+            <li key={q.id}>
+              <button
+                onClick={() => setOpenId(q.id)}
+                className="w-full text-left py-2 px-2 -mx-2 rounded-lg hover:bg-ground
+                  transition-colors flex items-center gap-2.5"
+              >
+                <span
+                  className={`font-mono text-[9px] uppercase px-1 py-0.5 rounded border shrink-0 ${TIER_TONE[q.tier]}`}
+                >
+                  {q.tier}
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className="block text-[13px] font-medium truncate">{q.title}</span>
+                  <span className="block text-[11px] text-muted truncate">{q.scope}</span>
+                </span>
+                <span className="font-mono text-[10px] text-muted shrink-0">interview →</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  )
+}
