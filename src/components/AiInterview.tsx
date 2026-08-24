@@ -3,6 +3,7 @@ import { SD_QUESTIONS, TIERS, type QTier, type SdQuestion } from '../data/sdPrac
 import { graderSystem, interviewerSystem } from '../lib/interviewPrompt'
 import {
   completeOnce,
+  explainError,
   hasApiKey,
   loadApiKey,
   loadModel,
@@ -181,7 +182,7 @@ function Room({ q, onExit }: RoomProps) {
       const full = await streamReply(system, next, (d) => setStreaming((s) => s + d), abortRef.current.signal)
       setTurns([...next, { role: 'assistant', text: full }])
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'The request failed.')
+      setErr(explainError(e))
       // Drop the unanswered user turn so a retry doesn't duplicate it.
       setTurns(next.slice(0, -1))
       setInput(text)
@@ -211,7 +212,7 @@ function Room({ q, onExit }: RoomProps) {
       )
       setGrade(out)
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Grading failed.')
+      setErr(`Grading failed. ${explainError(e)}`)
     } finally {
       setBusy(false)
     }
