@@ -147,6 +147,7 @@ function Room({ q, onExit }: RoomProps) {
   const [running, setRunning] = useState(false)
   const [grade, setGrade] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  const [retryNote, setRetryNote] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const logRef = useRef<HTMLDivElement>(null)
 
@@ -179,11 +180,20 @@ function Room({ q, onExit }: RoomProps) {
     setStreaming('')
     abortRef.current = new AbortController()
     try {
-      const full = await streamReply(system, next, (d) => setStreaming((s) => s + d), abortRef.current.signal)
+      const full = await streamReply(
+        system,
+        next,
+        (d) => setStreaming((s) => s + d),
+        abortRef.current.signal,
+        (secs, n) => setRetryNote(`Model busy — retrying in ${secs}s (attempt ${n + 1})…`),
+      )
+      setRetryNote(null)
       setTurns([...next, { role: 'assistant', text: full }])
     } catch (e) {
       setErr(explainError(e))
-      // Drop the unanswered user turn so a retry doesn't duplicate it.
+      setRetryNote(null)
+      // Drop the unanswered user turn so a retry doesn't duplicate it, and put
+      // the text back in the box so nothing typed is lost.
       setTurns(next.slice(0, -1))
       setInput(text)
     } finally {
@@ -209,10 +219,15 @@ function Room({ q, onExit }: RoomProps) {
         graderSystem(q),
         [{ role: 'user', text: `Here is the full transcript.\n\n${transcript}` }],
         4000,
+        (secs, n) => setRetryNote(`Model busy — retrying grade in ${secs}s (attempt ${n + 1})…`),
       )
+      setRetryNote(null)
       setGrade(out)
     } catch (e) {
-      setErr(`Grading failed. ${explainError(e)}`)
+      setRetryNote(null)
+      setErr(
+        `Grading failed after retrying. ${explainError(e)} Your transcript is safe — press "End & grade" again, or copy it below.`,
+      )
     } finally {
       setBusy(false)
     }
@@ -255,9 +270,35 @@ function Room({ q, onExit }: RoomProps) {
         </div>
       </div>
 
+      {retryNote && (
+        <div className="card p-3 border-warn/40">
+          <p className="text-xs text-warn">{retryNote}</p>
+        </div>
+      )}
+
       {err && (
         <div className="card p-3 border-miss/40">
           <p className="text-xs text-miss">{err}</p>
+          {turns.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-2">
+              {!grade && (
+                <button className="btn btn-primary text-xs" onClick={finish} disabled={busy}>
+                  Retry grading
+                </button>
+              )}
+              <button
+                className="btn text-xs"
+                onClick={() => {
+                  const t = turns
+                    .map((x) => `${x.role === 'user' ? 'CANDIDATE' : 'INTERVIEWER'}: ${x.text}`)
+                    .join('\n\n')
+                  void navigator.clipboard?.writeText(`${q.title}\n\n${t}`)
+                }}
+              >
+                Copy transcript
+              </button>
+            </div>
+          )}
         </div>
       )}
 

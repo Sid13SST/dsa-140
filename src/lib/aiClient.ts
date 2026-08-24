@@ -149,6 +149,46 @@ function activeModel(): string {
   return m
 }
 
+/** 503/500, and 429s that name a retry delay, are worth waiting out. */
+function isTransient(e: unknown): boolean {
+  const raw = e instanceof Error ? e.message : String(e)
+  if (/limit:\s*0/.test(raw)) return false // a tier problem, not a blip
+  return /UNAVAILABLE|503|high demand|overloaded|500|INTERNAL|RESOURCE_EXHAUSTED|429/i.test(raw)
+}
+
+/** Honour Google's own retryDelay when it gives one, else back off exponentially. */
+function retryDelayMs(e: unknown, attempt: number): number {
+  const raw = e instanceof Error ? e.message : String(e)
+  const secs = /retry(?:Delay)?["\s:]*([\d.]+)s/i.exec(raw)?.[1]
+  if (secs) return Math.min(Number(secs) * 1000 + 500, 30_000)
+  return Math.min(1500 * 2 ** attempt, 20_000)
+}
+
+/**
+ * Retries transient failures. A 503 mid-session is common on busy models, and
+ * losing a 45-minute interview to one would be indefensible — especially on the
+ * grading call, which happens after all the work is already done.
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  attempts: number,
+  onWait?: (seconds: number, attempt: number) => void,
+): Promise<T> {
+  let last: unknown
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn()
+    } catch (e) {
+      last = e
+      if (i === attempts - 1 || !isTransient(e)) break
+      const wait = retryDelayMs(e, i)
+      onWait?.(Math.ceil(wait / 1000), i + 1)
+      await new Promise((r) => setTimeout(r, wait))
+    }
+  }
+  throw last
+}
+
 /**
  * Streams a reply. Streaming matters here because interviewer turns can be long
  * and a 45-minute session accumulates a lot of context — a single blocking call
@@ -159,27 +199,36 @@ export async function streamReply(
   turns: Turn[],
   onDelta: (text: string) => void,
   signal?: AbortSignal,
+  onWait?: (seconds: number, attempt: number) => void,
 ): Promise<string> {
-  const stream = await client().models.generateContentStream({
-    model: activeModel(),
-    contents: toContents(turns),
-    config: {
-      systemInstruction: system,
-      maxOutputTokens: 4000,
-      ...(signal ? { abortSignal: signal } : {}),
-    },
-  })
+  // Two attempts mid-interview: enough to ride out a blip without leaving the
+  // candidate staring at a frozen screen while a timer runs.
+  return withRetry(
+    async () => {
+      const stream = await client().models.generateContentStream({
+        model: activeModel(),
+        contents: toContents(turns),
+        config: {
+          systemInstruction: system,
+          maxOutputTokens: 4000,
+          ...(signal ? { abortSignal: signal } : {}),
+        },
+      })
 
-  let full = ''
-  for await (const chunk of stream) {
-    const t = chunk.text
-    if (t) {
-      full += t
-      onDelta(t)
-    }
-  }
-  if (!full.trim()) throw new Error('The model returned an empty response. Try again.')
-  return full
+      let full = ''
+      for await (const chunk of stream) {
+        const t = chunk.text
+        if (t) {
+          full += t
+          onDelta(t)
+        }
+      }
+      if (!full.trim()) throw new Error('The model returned an empty response. Try again.')
+      return full
+    },
+    2,
+    onWait,
+  )
 }
 
 /** One-shot call used for the final grade, where no streaming UI is needed. */
@@ -187,15 +236,24 @@ export async function completeOnce(
   system: string,
   turns: Turn[],
   maxTokens = 4000,
+  onWait?: (seconds: number, attempt: number) => void,
 ): Promise<string> {
-  const res = await client().models.generateContent({
-    model: activeModel(),
-    contents: toContents(turns),
-    config: { systemInstruction: system, maxOutputTokens: maxTokens },
-  })
-  const text = res.text ?? ''
-  if (!text.trim()) throw new Error('The model returned an empty grade. Try again.')
-  return text
+  // Four attempts: this runs after the interview is finished, so giving up
+  // early would throw away the whole session's work.
+  return withRetry(
+    async () => {
+      const res = await client().models.generateContent({
+        model: activeModel(),
+        contents: toContents(turns),
+        config: { systemInstruction: system, maxOutputTokens: maxTokens },
+      })
+      const text = res.text ?? ''
+      if (!text.trim()) throw new Error('The model returned an empty grade. Try again.')
+      return text
+    },
+    4,
+    onWait,
+  )
 }
 
 /**
@@ -213,6 +271,12 @@ export function explainError(e: unknown): string {
     // Trailing punctuation is part of Google's sentence, not the model name.
     const model = /model:\s*([\w.-]+)/.exec(raw)?.[1]?.replace(/[.,;]+$/, '')
     return `${model ? `"${model}"` : 'That model'} isn't available on your key's tier (quota limit is 0, not exhausted). Open the API key settings and choose a different model — a flash text model is the safe pick.`
+  }
+  if (/UNAVAILABLE|503|high demand|overloaded/i.test(raw)) {
+    return 'Google\'s model is overloaded right now (503). This is temporary and nothing to do with your key — retry in a moment, or switch to a different model in the API key settings.'
+  }
+  if (/500|INTERNAL/i.test(raw)) {
+    return 'Google returned an internal error (500). Usually transient — retry.'
   }
   if (/RESOURCE_EXHAUSTED|429|quota/i.test(raw)) {
     const retry = /retry in ([\d.]+)s/i.exec(raw)?.[1]
