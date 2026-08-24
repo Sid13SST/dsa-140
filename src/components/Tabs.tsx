@@ -14,7 +14,10 @@ export default function Tabs<T extends string>({ tabs, active, onChange }: Props
     <div
       role="tablist"
       aria-label="Dashboard sections"
-      className="card p-1 flex gap-1 sticky top-[68px] z-10 backdrop-blur bg-surface/90"
+      // Scrolls rather than overflowing: five labels don't fit across a 375px
+      // phone, and letting the bar widen would push the whole page sideways.
+      className="card p-1 flex gap-1 sticky top-[68px] z-10 backdrop-blur bg-surface/90
+        overflow-x-auto sm:overflow-x-visible"
     >
       {tabs.map((t) => {
         const isActive = t.id === active
@@ -24,7 +27,8 @@ export default function Tabs<T extends string>({ tabs, active, onChange }: Props
             role="tab"
             aria-selected={isActive}
             onClick={() => onChange(t.id)}
-            className={`flex-1 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all
+            className={`shrink-0 sm:flex-1 sm:shrink px-3 py-1.5 rounded-lg text-sm font-semibold
+              transition-all whitespace-nowrap
               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 ${
                 isActive
                   ? 'bg-brand text-on-accent shadow-glow'

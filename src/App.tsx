@@ -3,7 +3,8 @@ import { SCHEDULE, TOTAL_DAYS } from './data/schedule'
 import type { DayState, Progress } from './types'
 import { emptyDay } from './types'
 import type { Contest } from './types'
-import { exportJSON, importJSON, loadLocal, saveLocal } from './lib/storage'
+import { exportJSON, importJSON, loadLocal, loadSd, saveLocal, saveSd } from './lib/storage'
+import type { SdProgress } from './lib/storage'
 import { hasFinished, loadAllContests } from './lib/contests'
 import { useNow } from './lib/useNow'
 import { useTheme } from './lib/theme'
@@ -13,9 +14,10 @@ import Analytics from './components/Analytics'
 import DayPanel from './components/DayPanel'
 import Tabs from './components/Tabs'
 import ResourceLibrary, { DayResources } from './components/Resources'
+import SystemDesign from './components/SystemDesign'
 import { CalendarView, ContestPanel, TopicProgress } from './components/Panels'
 
-type TabId = 'today' | 'progress' | 'analytics' | 'learn'
+type TabId = 'today' | 'progress' | 'analytics' | 'learn' | 'design'
 
 const iso = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -47,6 +49,16 @@ export default function App() {
   useEffect(() => {
     saveLocal(progress)
   }, [progress])
+
+  /* ---- the system design track is a separate, self-paced queue ---- */
+  const [sdProgress, setSdProgress] = useState<SdProgress>(() => loadSd())
+  useEffect(() => {
+    saveSd(sdProgress)
+  }, [sdProgress])
+
+  const toggleSdDay = useCallback((day: number) => {
+    setSdProgress((p) => ({ ...p, [day]: !p[day] }))
+  }, [])
 
   /*
    * Contests load once here and are shared by the contest panel and the
@@ -227,6 +239,7 @@ export default function App() {
             { id: 'progress' as const, label: 'Progress' },
             { id: 'analytics' as const, label: 'Analytics' },
             { id: 'learn' as const, label: 'Learn' },
+            { id: 'design' as const, label: 'Design' },
           ]}
           active={tab}
           onChange={setTab}
@@ -324,6 +337,10 @@ export default function App() {
         )}
 
         {tab === 'learn' && <ResourceLibrary schedule={SCHEDULE} />}
+
+        {tab === 'design' && (
+          <SystemDesign progress={sdProgress} onToggle={toggleSdDay} />
+        )}
 
         <footer className="text-center text-[11px] text-muted py-3">
           140 days · 22 Aug 2026 → 8 Jan 2027 · interview-ready checkpoint 31 Dec
