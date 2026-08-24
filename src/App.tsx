@@ -3,8 +3,17 @@ import { SCHEDULE, TOTAL_DAYS } from './data/schedule'
 import type { DayState, Progress } from './types'
 import { emptyDay } from './types'
 import type { Contest } from './types'
-import { exportJSON, importJSON, loadLocal, loadSd, saveLocal, saveSd } from './lib/storage'
-import type { SdProgress } from './lib/storage'
+import {
+  exportJSON,
+  importJSON,
+  loadLocal,
+  loadSd,
+  loadSdQuiz,
+  saveLocal,
+  saveSd,
+  saveSdQuiz,
+} from './lib/storage'
+import type { SdAttempt, SdProgress, SdQuizProgress } from './lib/storage'
 import { hasFinished, loadAllContests } from './lib/contests'
 import { useNow } from './lib/useNow'
 import { useTheme } from './lib/theme'
@@ -15,6 +24,7 @@ import DayPanel from './components/DayPanel'
 import Tabs from './components/Tabs'
 import ResourceLibrary, { DayResources } from './components/Resources'
 import SystemDesign from './components/SystemDesign'
+import SdPractice from './components/SdPractice'
 import { CalendarView, ContestPanel, TopicProgress } from './components/Panels'
 
 type TabId = 'today' | 'progress' | 'analytics' | 'learn' | 'design'
@@ -59,6 +69,19 @@ export default function App() {
   const toggleSdDay = useCallback((day: number) => {
     setSdProgress((p) => ({ ...p, [day]: !p[day] }))
   }, [])
+
+  /* ---- design practice: attempts and self-grades, stored separately ---- */
+  const [sdQuiz, setSdQuiz] = useState<SdQuizProgress>(() => loadSdQuiz())
+  useEffect(() => {
+    saveSdQuiz(sdQuiz)
+  }, [sdQuiz])
+
+  const setSdAttempt = useCallback((id: string, next: SdAttempt) => {
+    setSdQuiz((p) => ({ ...p, [id]: next }))
+  }, [])
+
+  // Which half of the Design tab is showing: the reading queue or the questions.
+  const [designMode, setDesignMode] = useState<'study' | 'practice'>('study')
 
   /*
    * Contests load once here and are shared by the contest panel and the
@@ -339,7 +362,31 @@ export default function App() {
         {tab === 'learn' && <ResourceLibrary schedule={SCHEDULE} />}
 
         {tab === 'design' && (
-          <SystemDesign progress={sdProgress} onToggle={toggleSdDay} />
+          <div className="space-y-3">
+            <div className="card p-1 flex gap-1">
+              {(['study', 'practice'] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setDesignMode(m)}
+                  className={`flex-1 px-3 py-1.5 rounded-lg text-sm font-semibold capitalize
+                    transition-all focus-visible:outline-none focus-visible:ring-2
+                    focus-visible:ring-brand/50 ${
+                      designMode === m
+                        ? 'bg-brand text-on-accent shadow-glow'
+                        : 'text-muted hover:text-ink hover:bg-ground'
+                    }`}
+                >
+                  {m === 'study' ? 'Study' : 'Practice'}
+                </button>
+              ))}
+            </div>
+
+            {designMode === 'study' ? (
+              <SystemDesign progress={sdProgress} onToggle={toggleSdDay} />
+            ) : (
+              <SdPractice progress={sdQuiz} onChange={setSdAttempt} />
+            )}
+          </div>
         )}
 
         <footer className="text-center text-[11px] text-muted py-3">
