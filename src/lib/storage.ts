@@ -30,3 +30,27 @@ export function importJSON(text: string): Progress {
   }
   return parsed as Progress
 }
+
+/* ------------------------- system design track ------------------------- */
+
+const SD_KEY = 'dsa140:systemdesign:v1'
+
+/** Day number → done. Kept separate from DSA so neither track can corrupt the other. */
+export type SdProgress = Record<number, boolean>
+
+export function loadSd(): SdProgress {
+  try {
+    const raw = localStorage.getItem(SD_KEY)
+    return raw ? (JSON.parse(raw) as SdProgress) : {}
+  } catch {
+    return {}
+  }
+}
+
+export function saveSd(p: SdProgress) {
+  try {
+    localStorage.setItem(SD_KEY, JSON.stringify(p))
+  } catch {
+    // Same as above — non-fatal.
+  }
+}
