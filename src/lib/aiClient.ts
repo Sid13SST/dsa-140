@@ -64,6 +64,19 @@ function client(): GoogleGenAI {
  * lineup moves quickly and a name baked in here would eventually 404 for
  * everyone; asking the account what it can actually run cannot go stale.
  */
+/**
+ * Endpoints that cannot hold a text interview. This has to be thorough: an
+ * earlier version excluded only `image-generation`, so `gemini-3-pro-image`
+ * slipped through *and* out-scored everything because it matched `-pro`. The
+ * result was a 429 with `limit: 0` — which reads like an exhausted key but
+ * actually means "this model isn't offered on your tier at all".
+ *
+ * Note this excludes models that *emit* images, not ones that accept them:
+ * the whiteboard needs image input, which ordinary Gemini text models handle.
+ */
+const NOT_A_TEXT_MODEL =
+  /embedding|imagen|veo|tts|aqa|image|video|audio|live|nano-banana|computer-use|robotics|gemma-3n/i
+
 export async function listModels(): Promise<string[]> {
   const pager = await client().models.list({ config: { queryBase: true, pageSize: 100 } })
   const out: string[] = []
@@ -73,24 +86,33 @@ export async function listModels(): Promise<string[]> {
     if (supports.length && !supports.includes('generateContent')) continue
     const name = (m.name ?? '').replace(/^models\//, '')
     if (!name) continue
-    // Skip specialised endpoints that cannot hold an interview.
-    if (/embedding|aqa|imagen|veo|tts|image-generation/i.test(name)) continue
+    if (NOT_A_TEXT_MODEL.test(name)) continue
     out.push(name)
   }
   return out
 }
 
-/** Prefer a capable text model, then fall back to whatever the key offers. */
+/**
+ * Prefer a capable text model. Scoring is deliberately conservative about
+ * anything unusual — a wrong default costs a confusing failure on the first
+ * call, and the user has no way to know the model was the problem.
+ */
 export function pickDefaultModel(models: string[]): string {
   const score = (m: string) => {
     let s = 0
-    if (/-pro/.test(m)) s += 40
-    else if (/-flash/.test(m)) s += 20
+    // Flash outranks pro deliberately. Pro tiers are frequently paid-only, and
+    // a default that 429s with `limit: 0` on the first question is worse than a
+    // slightly weaker interviewer that actually runs. Pro is one dropdown pick
+    // away for anyone whose key has it.
+    if (/-flash(-|$)/.test(m)) s += 40
+    else if (/-pro(-|$)/.test(m)) s += 30
     // Newer generation first: gemini-3.7 beats 3.5 beats 2.5.
     const gen = /gemini-(\d+(?:\.\d+)?)/.exec(m)
     if (gen) s += Math.min(Number(gen[1]) * 4, 30)
-    if (/preview|exp|thinking/i.test(m)) s -= 6
-    if (/lite/i.test(m)) s -= 10
+    if (/preview|exp\b|experimental/i.test(m)) s -= 8
+    if (/thinking/i.test(m)) s -= 4
+    if (/lite/i.test(m)) s -= 12
+    if (/gemma|learnlm/i.test(m)) s -= 25
     return s
   }
   return [...models].sort((a, b) => score(b) - score(a))[0] ?? ''
@@ -177,6 +199,41 @@ export async function completeOnce(
 }
 
 /**
+ * Turns Google's raw error into something that points at the actual fix.
+ *
+ * The important case is a 429 carrying `limit: 0`. That is not an exhausted
+ * quota — it means the selected model is not offered on this key's tier at
+ * all, and no amount of waiting will help. Reporting it as "rate limited"
+ * sends you off to check billing when the real fix is to pick another model.
+ */
+export function explainError(e: unknown): string {
+  const raw = e instanceof Error ? e.message : String(e)
+
+  if (/limit:\s*0/.test(raw)) {
+    // Trailing punctuation is part of Google's sentence, not the model name.
+    const model = /model:\s*([\w.-]+)/.exec(raw)?.[1]?.replace(/[.,;]+$/, '')
+    return `${model ? `"${model}"` : 'That model'} isn't available on your key's tier (quota limit is 0, not exhausted). Open the API key settings and choose a different model — a flash text model is the safe pick.`
+  }
+  if (/RESOURCE_EXHAUSTED|429|quota/i.test(raw)) {
+    const retry = /retry in ([\d.]+)s/i.exec(raw)?.[1]
+    return `Rate limited on this model${retry ? ` — retry in about ${Math.ceil(Number(retry))}s` : ''}. The free tier has per-minute and per-day caps; a flash model has far more headroom.`
+  }
+  if (/API_KEY_INVALID|API key not valid|401|403|PERMISSION_DENIED/i.test(raw)) {
+    return 'That key was rejected by Google. Check it in the API key settings.'
+  }
+  if (/NOT_FOUND|404/i.test(raw)) {
+    return 'That model no longer exists on this key. Reopen the API key settings and re-pick one.'
+  }
+  if (/SAFETY|blocked/i.test(raw)) {
+    return 'Google blocked that response. Rephrase and try again.'
+  }
+  if (/Failed to fetch|NetworkError|ERR_/i.test(raw)) {
+    return `Could not reach Google: ${raw}`
+  }
+  return raw
+}
+
+/**
  * Cheap round-trip that both validates the key and reports what it can run, so
  * a bad key is distinguishable from a network problem before a session starts.
  */
@@ -190,16 +247,6 @@ export async function testKey(): Promise<
     }
     return { ok: true, models }
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    if (/API_KEY_INVALID|API key not valid|401|403/i.test(msg)) {
-      return { ok: false, error: 'That key was rejected by Google.' }
-    }
-    if (/quota|429/i.test(msg)) {
-      return { ok: false, error: 'Rate limited or out of quota — the key works but is throttled.' }
-    }
-    if (/fetch|network|Failed to fetch/i.test(msg)) {
-      return { ok: false, error: `Could not reach Google: ${msg}` }
-    }
-    return { ok: false, error: msg }
+    return { ok: false, error: explainError(e) }
   }
 }
