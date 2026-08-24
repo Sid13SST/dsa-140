@@ -54,3 +54,36 @@ export function saveSd(p: SdProgress) {
     // Same as above — non-fatal.
   }
 }
+
+/* ----------------------- system design practice ------------------------ */
+
+const SDQ_KEY = 'dsa140:sdpractice:v1'
+
+export interface SdAttempt {
+  /** Rubric points ticked, by index into allRubric(question). */
+  hit: number[]
+  attempts: number
+  lastAt: string | null
+  notes: string
+}
+
+export type SdQuizProgress = Record<string, SdAttempt>
+
+export function loadSdQuiz(): SdQuizProgress {
+  try {
+    const raw = localStorage.getItem(SDQ_KEY)
+    return raw ? (JSON.parse(raw) as SdQuizProgress) : {}
+  } catch {
+    return {}
+  }
+}
+
+export function saveSdQuiz(p: SdQuizProgress) {
+  try {
+    localStorage.setItem(SDQ_KEY, JSON.stringify(p))
+  } catch {
+    // Non-fatal, same as the other tracks.
+  }
+}
+
+export const emptyAttempt = (): SdAttempt => ({ hit: [], attempts: 0, lastAt: null, notes: '' })
