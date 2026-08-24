@@ -110,6 +110,15 @@ export default function App() {
     [selected],
   )
 
+  /** Contests starting on the selected day, in start order, for its checklist. */
+  const selectedDayContests = useMemo(
+    () =>
+      contests
+        .filter((c) => iso(new Date(c.startsAt)) === selectedDay.date)
+        .sort((a, b) => a.startsAt - b.startsAt),
+    [contests, selectedDay.date],
+  )
+
   const jump = useCallback(
     (delta: number) => {
       const i = SCHEDULE.findIndex((d) => d.date === selected)
@@ -234,6 +243,7 @@ export default function App() {
                 state={progress[selectedDay.date] ?? emptyDay()}
                 onChange={(next) => setDay(selectedDay.date, next)}
                 onJump={jump}
+                contests={selectedDayContests}
               />
             </div>
             <div className="space-y-3 min-w-0">

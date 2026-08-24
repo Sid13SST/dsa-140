@@ -30,7 +30,24 @@ export interface DayState {
   /** Slugs solved on this day. */
   solved: string[]
   notes: string
+  /**
+   * Legacy single flag from before contests were tracked individually. Kept so
+   * progress saved by earlier versions still counts; new ticks go to
+   * `contestsDone`.
+   */
   contestDone: boolean
+  /**
+   * Ids of contests taken on this day. Purely informational — ticking one never
+   * changes the day's present/absent status.
+   */
+  contestsDone?: string[]
+}
+
+/** Contests taken on a day, counting legacy data that predates per-contest ids. */
+export function contestsTaken(st: DayState | undefined): number {
+  if (!st) return 0
+  if (st.contestsDone?.length) return st.contestsDone.length
+  return st.contestDone ? 1 : 0
 }
 
 export type Progress = Record<string, DayState>
@@ -41,6 +58,7 @@ export const emptyDay = (): DayState => ({
   solved: [],
   notes: '',
   contestDone: false,
+  contestsDone: [],
 })
 
 export type Platform = 'LeetCode' | 'Codeforces' | 'CodeChef' | 'AtCoder'
