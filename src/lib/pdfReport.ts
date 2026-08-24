@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import type { Day, Progress } from '../types'
+import { contestsTaken } from '../types'
 import { computeAnalytics } from './analytics'
 import { GENERAL_RESOURCES, TOPIC_RESOURCES } from '../data/resources'
 
@@ -317,7 +318,7 @@ export function generatePdfReport(
   autoTable(doc, {
     startY: y,
     margin: { left: margin, right: margin },
-    head: [['Day', 'Date', 'Topic', 'Status', 'Hours', 'Solved', 'Contest', 'Notes']],
+    head: [['Day', 'Date', 'Topic', 'Status', 'Hours', 'Solved', 'Contests', 'Notes']],
     body: schedule.map((d) => {
       const st = progress[d.date]
       const target = d.problems.filter((p) => !p.revisit).length
@@ -328,7 +329,7 @@ export function generatePdfReport(
         statusLabel(st, d.date < todayIso),
         st?.hours ? st.hours.toFixed(1) : '-',
         `${st?.solved.length ?? 0}/${target}`,
-        st?.contestDone ? 'Yes' : '-',
+        contestsTaken(st) > 0 ? String(contestsTaken(st)) : '-',
         t(st?.notes?.trim() || ''),
       ]
     }),

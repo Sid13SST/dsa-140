@@ -1,4 +1,5 @@
 import type { Day, Progress } from '../types'
+import { contestsTaken } from '../types'
 
 export interface CoreStats {
   solved: number
@@ -27,7 +28,7 @@ export function computeStats(schedule: Day[], progress: Progress, todayIso: stri
     if (st.status === 'done') daysDone++
     if (st.status === 'absent') absent++
     hours += st.hours || 0
-    if (st.contestDone) contests++
+    contests += contestsTaken(st)
     for (const slug of st.solved) {
       if (solvedSet.has(slug)) continue
       solvedSet.add(slug)

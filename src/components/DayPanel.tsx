@@ -1,5 +1,5 @@
-import type { Day, DayState } from '../types'
-import { emptyDay } from '../types'
+import type { Contest, Day, DayState } from '../types'
+import { emptyDay, PLATFORMS } from '../types'
 import { problemHelp } from '../data/resources'
 
 interface Props {
@@ -7,6 +7,8 @@ interface Props {
   state: DayState | undefined
   onChange: (next: DayState) => void
   onJump: (delta: number) => void
+  /** Contests starting on this day, if the fetched window reaches it. */
+  contests: Contest[]
 }
 
 const LC = (slug: string) => `https://leetcode.com/problems/${slug}/`
@@ -21,7 +23,7 @@ const kindLabel: Record<Day['kind'], string> = {
   mixed: 'Final revision',
 }
 
-export default function DayPanel({ day, state, onChange, onJump }: Props) {
+export default function DayPanel({ day, state, onChange, onJump, contests }: Props) {
   const st = state ?? emptyDay()
   const core = day.problems.filter((p) => !p.revisit)
   const done = st.solved.length
@@ -40,6 +42,26 @@ export default function DayPanel({ day, state, onChange, onJump }: Props) {
   }
 
   const absent = st.status === 'absent'
+
+  const contestsDone = st.contestsDone ?? []
+  /**
+   * Deliberately does not touch `status`: the contest list is a heads-up, not
+   * attendance. Ticking one never marks the day done, and it stays editable on
+   * an absent day.
+   */
+  const toggleContest = (id: string) => {
+    const next = contestsDone.includes(id)
+      ? contestsDone.filter((c) => c !== id)
+      : [...contestsDone, id]
+    patch({ contestsDone: next })
+  }
+
+  const contestTime = (ms: number) =>
+    new Date(ms).toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    })
 
   return (
     <section className="card p-4">
@@ -112,12 +134,13 @@ export default function DayPanel({ day, state, onChange, onJump }: Props) {
           </div>
         </div>
 
-        {(day.lcWeekly || day.lcBiweekly || day.kind === 'contest') && (
+        {/* Only when the contest feed doesn't reach this day — otherwise the
+            checklist below covers it, and showing both would double up. */}
+        {contests.length === 0 && (day.lcWeekly || day.lcBiweekly || day.kind === 'contest') && (
           <label className="flex items-center gap-2 pb-1.5">
             <input
               type="checkbox"
               checked={st.contestDone}
-              disabled={absent}
               onChange={(e) => patch({ contestDone: e.target.checked })}
               className="w-4 h-4 accent-ac"
             />
@@ -151,6 +174,66 @@ export default function DayPanel({ day, state, onChange, onJump }: Props) {
           This day is excused and won't count against your streak. Its problems roll into your
           backlog — pick them up on a lighter day.
         </p>
+      )}
+
+      {/* Contests lined up today. Optional and independent of attendance, so it
+          keeps full opacity even on an absent day. */}
+      {contests.length > 0 && (
+        <div className="mt-3 rounded-lg border border-rule bg-ground/40 p-2.5">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="eyebrow">contests today</span>
+            <span className="font-mono text-[10px] text-muted">
+              {contestsDone.length}/{contests.length} · optional
+            </span>
+          </div>
+          <p className="text-[11px] text-muted mt-0.5">
+            Tick what you took part in — this doesn't affect your attendance or streak.
+          </p>
+
+          <ul className="mt-1.5 space-y-1">
+            {contests.map((c) => {
+              const checked = contestsDone.includes(c.id)
+              const p = PLATFORMS[c.platform]
+              return (
+                <li key={c.id}>
+                  <label className="flex items-center gap-2 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleContest(c.id)}
+                      className="w-4 h-4 shrink-0 accent-ac"
+                      aria-label={`Mark ${c.name} as taken`}
+                    />
+                    <span className={`w-1.5 h-5 rounded-full shrink-0 ${p.dot}`} aria-hidden="true" />
+                    <span className="flex-1 min-w-0">
+                      <span
+                        className={`block text-[13px] leading-tight truncate ${
+                          checked ? 'line-through text-muted' : ''
+                        }`}
+                      >
+                        {c.name}
+                      </span>
+                      <span className="block font-mono text-[10px] text-muted">
+                        {p.short} · {contestTime(c.startsAt)} · {c.durationMin}m
+                      </span>
+                    </span>
+                    <a
+                      href={c.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="font-mono text-[10px] text-muted hover:text-ink shrink-0
+                        opacity-60 group-hover:opacity-100 transition-opacity"
+                      aria-label={`Open ${c.name}`}
+                    >
+                      open ↗
+                    </a>
+                  </label>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
       )}
 
       {/* Problems */}
