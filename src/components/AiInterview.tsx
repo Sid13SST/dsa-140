@@ -5,7 +5,10 @@ import {
   completeOnce,
   hasApiKey,
   loadApiKey,
+  loadModel,
+  pickDefaultModel,
   saveApiKey,
+  saveModel,
   streamReply,
   testKey,
   type Turn,
@@ -24,45 +27,62 @@ const TIER_TONE: Record<QTier, string> = {
 
 function KeySetup({ onReady }: { onReady: () => void }) {
   const [key, setKey] = useState(loadApiKey())
-  const [state, setState] = useState<'idle' | 'testing' | 'bad'>('idle')
+  const [state, setState] = useState<'idle' | 'testing'>('idle')
   const [err, setErr] = useState<string | null>(null)
+  const [models, setModels] = useState<string[]>([])
+  const [chosen, setChosen] = useState(loadModel())
 
   const check = async () => {
     setState('testing')
     setErr(null)
     saveApiKey(key.trim())
     const r = await testKey()
-    if (r.ok) onReady()
-    else {
-      setState('bad')
+    setState('idle')
+    if (!r.ok) {
       setErr(r.error)
+      setModels([])
+      return
     }
+    setModels(r.models)
+    // Keep an earlier choice only if the key still offers it.
+    const next = r.models.includes(chosen) ? chosen : pickDefaultModel(r.models)
+    setChosen(next)
+    saveModel(next)
+  }
+
+  const start = () => {
+    saveModel(chosen)
+    onReady()
   }
 
   return (
     <div className="card p-4">
       <span className="eyebrow">one-time setup</span>
-      <h3 className="font-display font-bold text-lg mt-1">Add your Anthropic API key</h3>
+      <h3 className="font-display font-bold text-lg mt-1">Add your Gemini API key</h3>
       <p className="text-sm text-muted mt-1.5">
-        This app has no backend, so the interview calls Anthropic directly from your browser with
-        your own key. It is stored only in this browser's localStorage — never committed, never
-        bundled, never sent anywhere but Anthropic.
+        This app has no backend, so the interview calls Google directly from your browser with your
+        own key. It is stored only in this browser's localStorage — never committed, never bundled,
+        never sent anywhere but Google.
       </p>
 
       <input
         type="password"
         value={key}
         onChange={(e) => setKey(e.target.value)}
-        placeholder="sk-ant-…"
+        placeholder="AIza…"
         className="field w-full mt-3 font-mono text-xs"
-        aria-label="Anthropic API key"
+        aria-label="Gemini API key"
       />
       <div className="flex flex-wrap gap-2 mt-2">
-        <button className="btn btn-primary" onClick={check} disabled={!key.trim() || state === 'testing'}>
+        <button
+          className="btn btn-primary"
+          onClick={check}
+          disabled={!key.trim() || state === 'testing'}
+        >
           {state === 'testing' ? 'Checking…' : 'Save and check'}
         </button>
         <a
-          href="https://console.anthropic.com/settings/keys"
+          href="https://aistudio.google.com/apikey"
           target="_blank"
           rel="noreferrer"
           className="btn text-xs"
@@ -72,10 +92,39 @@ function KeySetup({ onReady }: { onReady: () => void }) {
       </div>
       {err && <p className="text-xs text-miss mt-2">{err}</p>}
 
+      {models.length > 0 && (
+        <div className="mt-4 pt-3 border-t border-rule">
+          <span className="eyebrow">model</span>
+          <p className="text-[11px] text-muted mt-0.5">
+            Read from your key, not hard-coded — {models.length} available. Pick a{' '}
+            <strong>pro</strong> tier for a tougher interviewer, <strong>flash</strong> for a
+            cheaper one.
+          </p>
+          <select
+            value={chosen}
+            onChange={(e) => {
+              setChosen(e.target.value)
+              saveModel(e.target.value)
+            }}
+            className="field w-full mt-2 font-mono text-xs"
+            aria-label="Gemini model"
+          >
+            {models.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+          <button className="btn btn-primary w-full mt-2" onClick={start} disabled={!chosen}>
+            Start interviewing
+          </button>
+        </div>
+      )}
+
       <p className="text-[11px] text-muted mt-3 pt-3 border-t border-rule">
-        Cost is roughly <strong>$0.30–0.60</strong> per full 45-minute interview on Opus, so the
-        whole bank of {SD_QUESTIONS.length} runs to about $10–15. Use a key you can rotate, and
-        set a spend limit in the console if you want a hard cap.
+        Gemini has a free tier with daily limits, which is usually enough for a few interviews a
+        day; beyond that a full {MINUTES}-minute round is cents rather than dollars on flash
+        models. Use a key you can rotate, and set a quota in the console if you want a hard cap.
       </p>
     </div>
   )
@@ -301,7 +350,8 @@ function Room({ q, onExit }: RoomProps) {
 /* ------------------------------ the picker ----------------------------- */
 
 export default function AiInterview() {
-  const [keyReady, setKeyReady] = useState(hasApiKey())
+  // A key alone isn't enough — without a chosen model every call would fail.
+  const [keyReady, setKeyReady] = useState(hasApiKey() && !!loadModel())
   const [openId, setOpenId] = useState<string | null>(null)
   const [tier, setTier] = useState<QTier | 'all'>('all')
 
