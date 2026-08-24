@@ -25,7 +25,7 @@ import Tabs from './components/Tabs'
 import ResourceLibrary, { DayResources } from './components/Resources'
 import SystemDesign from './components/SystemDesign'
 import SdPractice from './components/SdPractice'
-// The Anthropic SDK is ~250kB and only needed in interview mode, so it loads
+// The Gemini SDK is sizeable and only needed in interview mode, so it loads
 // on demand rather than in the initial bundle.
 const AiInterview = lazy(() => import('./components/AiInterview'))
 import { CalendarView, ContestPanel, TopicProgress } from './components/Panels'
