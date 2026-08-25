@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { api } from '../lib/supabase'
 import { PRICE_RUPEES } from '../lib/pricing'
+import { PAYMENTS_ENABLED } from '../lib/flags'
 
 declare global {
   interface Window {
@@ -106,6 +107,8 @@ export default function Plans() {
     }
   }, [me, navigate, refresh])
 
+  // The whole page is dormant until the paywall is switched back on.
+  if (!PAYMENTS_ENABLED) return <Navigate to="/app" replace />
   if (status === 'loading') return <Centered>Checking your account…</Centered>
   if (status === 'signed-out') return <Navigate to="/signin" replace />
   if (status === 'unconfigured') return <Navigate to="/signin" replace />

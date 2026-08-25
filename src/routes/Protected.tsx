@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
+import { PAYMENTS_ENABLED } from '../lib/flags'
 
 /**
  * Route guard for the dashboard.
@@ -41,7 +42,8 @@ export default function Protected({ children }: { children: React.ReactNode }) {
   }
 
   if (!me) return <Notice title="One moment">Loading your account…</Notice>
-  if (!me.hasPaid) return <Navigate to="/plans" replace />
+  // With the paywall off, being signed in is the whole requirement.
+  if (PAYMENTS_ENABLED && !me.hasPaid) return <Navigate to="/plans" replace />
 
   return <>{children}</>
 }
