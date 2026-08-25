@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
-import { api } from '../lib/supabase'
+import { supabase } from '../lib/supabase'
+import { PAYMENTS_ENABLED } from '../lib/flags'
 
 interface AdminUser {
   id: string
@@ -47,13 +48,16 @@ const STATUS_TONE: Record<AdminPayment['status'], string> = {
   created: 'text-warn border-warn/40 bg-warn/10',
 }
 
+const DAY_MS = 86_400_000
+
 /**
  * The super-admin surface.
  *
- * This component renders nothing sensitive on its own — every figure comes from
- * /api/admin, which checks the caller against the admins table server-side. A
- * non-admin who types this URL gets a 404 from the API and an empty page; they
- * do not get the data and then have it hidden by CSS.
+ * It reads straight from Supabase with the anon key, and that is safe because
+ * the `admin_users` view and the `payments` table both carry policies that
+ * return rows ONLY to an address listed in the admins table. A non-admin
+ * running this exact query in their own console gets an empty array back.
+ * Postgres is the gate; this component only draws the result.
  */
 export default function Admin() {
   const { status, me } = useAuth()
@@ -63,10 +67,44 @@ export default function Admin() {
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
+    if (!supabase) {
+      setError('Supabase is not configured in this build.')
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setError(null)
     try {
-      setData(await api<AdminData>('/api/admin'))
+      const [usersRes, paymentsRes] = await Promise.all([
+        supabase.from('admin_users').select('*').order('created_at', { ascending: false }),
+        supabase
+          .from('payments')
+          .select(
+            'email, razorpay_order_id, razorpay_payment_id, status, amount, currency, confirmed_by, created_at',
+          )
+          .order('created_at', { ascending: false })
+          .limit(500),
+      ])
+
+      if (usersRes.error) throw new Error(usersRes.error.message)
+
+      const users = (usersRes.data ?? []) as AdminUser[]
+      // Payments may be empty while the paywall is off. Not worth failing on.
+      const payments = (paymentsRes.data ?? []) as AdminPayment[]
+      const paidRows = payments.filter((p) => p.status === 'paid')
+      const paid = users.filter((u) => u.has_paid).length
+
+      setData({
+        users,
+        payments,
+        totals: {
+          signedUp: users.length,
+          paid,
+          revenueRupees: paidRows.reduce((n, p) => n + (p.amount ?? 0), 0) / 100,
+          conversionPct: users.length ? Math.round((paid / users.length) * 100) : 0,
+          failed: payments.filter((p) => p.status === 'failed').length,
+        },
+      })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load admin data')
       setData(null)
@@ -80,10 +118,14 @@ export default function Admin() {
   }, [status, load])
 
   const paidUsers = useMemo(() => data?.users.filter((u) => u.has_paid) ?? [], [data])
+  const activeToday = useMemo(
+    () => data?.users.filter((u) => Date.now() - new Date(u.last_seen_at).getTime() < DAY_MS) ?? [],
+    [data],
+  )
 
   if (status === 'loading') return <Centered>Checking your account…</Centered>
   if (status !== 'signed-in') return <Navigate to="/signin" replace />
-  // Belt and braces: the API is the real gate, this just avoids a pointless render.
+  // Belt and braces: the policies are the real gate, this avoids a pointless render.
   if (me && !me.isAdmin) return <Navigate to="/app" replace />
 
   return (
@@ -107,25 +149,33 @@ export default function Admin() {
         {error && (
           <div className="card p-3 border-miss/40">
             <p className="text-[12px] text-miss">{error}</p>
+            <p className="text-[11px] text-muted mt-1">
+              If this says a relation does not exist, <code>supabase/schema.sql</code> has not
+              been run yet.
+            </p>
           </div>
         )}
 
         {data && (
           <>
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <div
+              className={`grid grid-cols-2 gap-3 ${
+                PAYMENTS_ENABLED ? 'lg:grid-cols-5' : 'lg:grid-cols-2'
+              }`}
+            >
               <Metric label="signed up" value={`${data.totals.signedUp}`} />
-              <Metric label="paid" value={`${data.totals.paid}`} tone="text-ac" />
-              <Metric
-                label="conversion"
-                value={`${data.totals.conversionPct}%`}
-                tone={data.totals.conversionPct >= 20 ? 'text-ac' : 'text-warn'}
-              />
-              <Metric label="revenue" value={`₹${data.totals.revenueRupees.toFixed(0)}`} />
-              <Metric
-                label="failed payments"
-                value={`${data.totals.failed}`}
-                tone={data.totals.failed > 0 ? 'text-miss' : undefined}
-              />
+              <Metric label="active today" value={`${activeToday.length}`} tone="text-ac" />
+              {PAYMENTS_ENABLED && (
+                <>
+                  <Metric label="paid" value={`${data.totals.paid}`} tone="text-ac" />
+                  <Metric
+                    label="conversion"
+                    value={`${data.totals.conversionPct}%`}
+                    tone={data.totals.conversionPct >= 20 ? 'text-ac' : 'text-warn'}
+                  />
+                  <Metric label="revenue" value={`₹${data.totals.revenueRupees.toFixed(0)}`} />
+                </>
+              )}
             </div>
 
             <div className="card p-2 flex flex-wrap gap-2">
@@ -138,6 +188,7 @@ export default function Admin() {
               <button
                 onClick={() => setTab('payments')}
                 className={`btn text-xs ${tab === 'payments' ? 'btn-primary' : ''}`}
+                title={PAYMENTS_ENABLED ? undefined : 'Payments are switched off in this build'}
               >
                 Payments {data.payments.length}
               </button>
@@ -148,7 +199,9 @@ export default function Admin() {
                 <div className="flex items-baseline justify-between mb-2">
                   <span className="eyebrow">everyone who has signed in</span>
                   <span className="font-mono text-[10px] text-muted">
-                    {paidUsers.length} paid of {data.users.length}
+                    {PAYMENTS_ENABLED
+                      ? `${paidUsers.length} paid of ${data.users.length}`
+                      : `${data.users.length} accounts`}
                   </span>
                 </div>
                 <Scroller>
@@ -157,10 +210,10 @@ export default function Admin() {
                       <tr className="text-left border-b border-rule">
                         <Th>Email</Th>
                         <Th>Name</Th>
-                        <Th>Status</Th>
+                        {PAYMENTS_ENABLED && <Th>Status</Th>}
                         <Th>Signed up</Th>
                         <Th>Last seen</Th>
-                        <Th>Paid at</Th>
+                        {PAYMENTS_ENABLED && <Th>Paid at</Th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -168,19 +221,25 @@ export default function Admin() {
                         <tr key={u.id} className="border-b border-rule/50">
                           <Td mono>{u.email}</Td>
                           <Td>{u.full_name ?? '—'}</Td>
-                          <Td>
-                            <Badge tone={u.has_paid ? STATUS_TONE.paid : 'text-muted border-rule bg-ground'}>
-                              {u.has_paid ? 'paid' : 'free'}
-                            </Badge>
-                            {u.failed_payments > 0 && (
-                              <span className="ml-1.5 font-mono text-[10px] text-miss">
-                                {u.failed_payments} failed
-                              </span>
-                            )}
-                          </Td>
+                          {PAYMENTS_ENABLED && (
+                            <Td>
+                              <Badge
+                                tone={
+                                  u.has_paid ? STATUS_TONE.paid : 'text-muted border-rule bg-ground'
+                                }
+                              >
+                                {u.has_paid ? 'paid' : 'free'}
+                              </Badge>
+                              {u.failed_payments > 0 && (
+                                <span className="ml-1.5 font-mono text-[10px] text-miss">
+                                  {u.failed_payments} failed
+                                </span>
+                              )}
+                            </Td>
+                          )}
                           <Td>{when(u.created_at)}</Td>
                           <Td>{when(u.last_seen_at)}</Td>
-                          <Td>{when(u.paid_at)}</Td>
+                          {PAYMENTS_ENABLED && <Td>{when(u.paid_at)}</Td>}
                         </tr>
                       ))}
                       {data.users.length === 0 && (
@@ -196,6 +255,13 @@ export default function Admin() {
 
             {tab === 'payments' && (
               <div className="card p-3">
+                {!PAYMENTS_ENABLED && (
+                  <p className="text-[11px] text-warn mb-2">
+                    Payments are switched off in this build, so nothing new will appear here. The
+                    table and the Razorpay flow behind it stay ready for when it is switched back
+                    on.
+                  </p>
+                )}
                 <div className="flex items-baseline justify-between mb-2">
                   <span className="eyebrow">every payment attempt</span>
                   <span className="font-mono text-[10px] text-muted">

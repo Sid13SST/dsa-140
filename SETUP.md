@@ -4,9 +4,15 @@ Everything you have to do by hand, in order. Nothing in this file requires
 sending a secret to anyone; every key goes straight from the provider's
 dashboard into Vercel's environment variables.
 
+> **Payments are currently switched OFF** (`VITE_PAYMENTS_ENABLED=false`).
+> In this mode you need only steps 1 and 3, and no serverless functions at all:
+> signing in with Google is the whole requirement, and every read is authorised
+> by Row Level Security. Sections 2 and 5 apply when you switch the paywall on.
+
 > **Rotate first.** A Supabase `service_role` key and a Razorpay key secret were
 > pasted into a chat earlier in this project's history. Treat both as public and
-> regenerate them before going anywhere near live mode.
+> regenerate them before going anywhere near live mode. (The *anon* key is
+> public by design and does not need rotating — it ships in the browser bundle.)
 
 ---
 
@@ -21,9 +27,12 @@ dashboard into Vercel's environment variables.
    type *Web application*). Paste the callback URL Supabase shows you into the
    Google client's *Authorised redirect URIs*, then paste Google's client ID and
    secret back into Supabase.
-4. **Auth → URL Configuration**: set *Site URL* to your Vercel domain and add
-   `https://<your-domain>/plans` to *Redirect URLs*. Add
-   `http://localhost:5173/plans` too if you want sign-in to work locally.
+4. **Auth → URL Configuration**: set *Site URL* to your deployed domain, and add
+   these to *Redirect URLs* — sign-in lands on `/app` while payments are off and
+   on `/plans` once they are on, so allow both:
+   - `https://<your-domain>/app` and `https://<your-domain>/plans`
+   - `https://sid13sst.github.io/dsa-140/app` if you use the Pages deploy
+   - `http://localhost:5173/app` for local development
 5. **SQL Editor**: paste all of [`supabase/schema.sql`](supabase/schema.sql) and
    run it once. It creates `profiles`, `payments` and `admins`, turns on Row
    Level Security, and inserts `siddhant.prasad8@gmail.com` as the only admin.
@@ -51,10 +60,13 @@ they close the tab mid-payment, the webhook still marks them paid.
 
 ---
 
-## 3. Vercel environment variables
+## 3. Environment variables
 
-Project → Settings → Environment Variables. Add all six, to every environment
-you deploy.
+Locally, copy `.env.example` to `.env.local` and fill it in. For deployment,
+put the same values in Vercel under Project → Settings → Environment Variables.
+
+With payments off you need only the first two, plus
+`VITE_PAYMENTS_ENABLED=false`.
 
 | Name | Value | Visible to the browser? |
 | --- | --- | --- |
@@ -74,13 +86,13 @@ your database and mark themselves paid.
 
 ## 4. Deployment
 
-This app now has serverless functions in `api/`, so it must be deployed on
-**Vercel**. The GitHub Pages workflow (`.github/workflows/deploy.yml`) can only
-serve the static half — sign-in and payments will not work there. Either delete
-that workflow or accept that the Pages copy is a broken preview.
+**With payments off, GitHub Pages works fully.** Nothing calls `api/`, so the
+existing workflow at `https://sid13sst.github.io/dsa-140/` serves the whole app,
+sign-in included. The build sets its base path automatically.
 
-`vercel.json` already excludes `/api/*` from the SPA rewrite, so the functions
-are reachable while every other path falls through to `index.html`.
+**With payments on you need Vercel**, because the Razorpay flow depends on the
+serverless functions in `api/`, which Pages cannot run. `vercel.json` already
+excludes `/api/*` from the SPA rewrite so the functions stay reachable.
 
 ---
 
@@ -107,19 +119,25 @@ What to check:
 
 | Rule | Enforced by |
 | --- | --- |
-| You are who you say you are | Supabase verifies the token on every API call |
-| You paid | `profiles.has_paid`, writable only by the service-role key |
-| A payment is genuine | HMAC-SHA256 signature check against the key secret |
+| You are who you say you are | Supabase validates the session on every request |
 | You cannot read another user's rows | Postgres Row Level Security |
-| You cannot mark yourself paid | RLS plus a trigger that rejects the write |
-| Only you see the admin console | `admins` table, checked server-side in `/api/admin` |
+| Only you see the admin console | A policy on `admins` that returns rows to admins only, so a non-admin's query comes back empty |
+| You cannot mark yourself paid | RLS plus a trigger that rejects the write outright |
+| A payment is genuine *(when on)* | HMAC-SHA256 signature check against the key secret, server-side |
 
-The React route guards are convenience only. They decide what to *show*; the
-server decides what to *serve*.
+The React route guards are convenience only. They decide what to *show*;
+Postgres decides what it will *hand over*. Running the app's own queries from a
+browser console gets a non-admin an empty array, not a leak.
 
-### Known gap
+### Known gaps
 
-The curriculum still ships inside the JavaScript bundle. A determined visitor
+**Payments are off.** The Razorpay flow, the `has_paid` gate and the revenue
+columns are all written and wired, but dormant behind `VITE_PAYMENTS_ENABLED`.
+Switch it to `true`, add the three server secrets, and the paywall comes back
+without further code changes.
+
+**Content is not gated.** The curriculum still ships inside the JavaScript
+bundle. A determined visitor
 can download `assets/App-*.js` and read the 200 rail days and the question banks
 without paying. Closing that means moving the generated data behind an
 authenticated `/api/content` endpoint — planned, not yet done. Until then the

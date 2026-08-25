@@ -1,12 +1,17 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { PRICE_RUPEES } from '../lib/pricing'
+import { PAYMENTS_ENABLED } from '../lib/flags'
 
 /**
  * The public page. Everything here is marketing copy and summary counts —
  * deliberately NOT imported from the data files, because importing them would
- * pull the whole curriculum into the public bundle and undo the paywall. These
- * numbers are checked against the generators by scripts/check-landing-counts.cjs.
+ * pull the whole curriculum into the public bundle.
+ *
+ * The cost of that choice is that these numbers can drift from the generators.
+ * They are correct as of the 200-day rail: 50 + 30 + 25 + 25 + 35 + 25 domain
+ * days plus 10 rest, 50 + 50 practice questions, 24 + 24 interview questions.
+ * If you change a generator, change them here too.
  */
 const NUMBERS = [
   { value: '503', label: 'DSA problems', sub: 'across 140 dated days' },
@@ -58,6 +63,17 @@ export default function Landing() {
   const { status, me } = useAuth()
   const signedIn = status === 'signed-in'
 
+  /*
+   * With the paywall off, signing up IS getting access — there is no payment
+   * step to send anyone to, and advertising a price you cannot charge would be
+   * a lie on the first screen.
+   */
+  const ctaTo = signedIn ? (PAYMENTS_ENABLED ? '/plans' : '/app') : '/signin?mode=signup'
+  const ctaLabel = PAYMENTS_ENABLED ? `Get access — ₹${PRICE_RUPEES} once →` : 'Create a free account →'
+  const ctaNote = PAYMENTS_ENABLED
+    ? 'One payment. No subscription, no renewal, no card stored.'
+    : 'Free while in development. One click with Google.'
+
   return (
     <div className="min-h-full">
       <header className="border-b border-rule">
@@ -67,7 +83,7 @@ export default function Landing() {
           </span>
           <div className="flex items-center gap-2">
             {signedIn ? (
-              <Link className="btn btn-primary text-xs" to={me?.hasPaid ? '/app' : '/plans'}>
+              <Link className="btn btn-primary text-xs" to={ctaTo}>
                 {me?.hasPaid ? 'Open dashboard' : 'Continue'}
               </Link>
             ) : (
@@ -98,12 +114,10 @@ export default function Landing() {
             same week your DSA plan does.
           </p>
           <div className="flex flex-wrap items-center gap-3 mt-6">
-            <Link className="btn btn-primary" to={signedIn ? '/plans' : '/signin?mode=signup'}>
-              Get access — &#8377;{PRICE_RUPEES} once &rarr;
+            <Link className="btn btn-primary" to={ctaTo}>
+              {ctaLabel}
             </Link>
-            <span className="text-[12px] text-muted">
-              One payment. No subscription, no renewal, no card stored.
-            </span>
+            <span className="text-[12px] text-muted">{ctaNote}</span>
           </div>
         </section>
 
@@ -174,9 +188,9 @@ export default function Landing() {
           <p className="text-[13px] text-muted mt-1.5 leading-relaxed">
             It is not a course and there are no lectures of ours. Every day points at one
             specific video or one deep-linked article from people who teach this better than we
-            could — all of it checked as live. What you are paying for is the sequencing, the
-            question set, the interviewer and the tracking. If that is not worth twenty rupees
-            to you, the sources are all public and you should go read them.
+            could — all of it checked as live. What this adds is the sequencing, the question
+            set, the interviewer and the tracking. The underlying sources are all public and
+            free, and if you would rather assemble them yourself, you should.
           </p>
         </section>
 
@@ -184,8 +198,8 @@ export default function Landing() {
         <section className="text-center py-4">
           <h2 className="font-display text-2xl font-bold">Day one is a video and one question.</h2>
           <p className="text-sm text-muted mt-2">Start it tonight.</p>
-          <Link className="btn btn-primary mt-4" to={signedIn ? '/plans' : '/signin?mode=signup'}>
-            Get access — &#8377;{PRICE_RUPEES} once &rarr;
+          <Link className="btn btn-primary mt-4" to={ctaTo}>
+            {ctaLabel}
           </Link>
         </section>
       </main>
@@ -193,7 +207,11 @@ export default function Landing() {
       <footer className="border-t border-rule">
         <div className="max-w-5xl mx-auto px-4 py-4 text-[11px] text-muted flex flex-wrap gap-x-4 gap-y-1 justify-between">
           <span>Backend 200</span>
-          <span>Payments processed by Razorpay. We never see or store your card details.</span>
+          <span>
+            {PAYMENTS_ENABLED
+              ? 'Payments processed by Razorpay. We never see or store your card details.'
+              : 'Sign-in by Google. We receive your name, email and picture — nothing else.'}
+          </span>
         </div>
       </footer>
     </div>
