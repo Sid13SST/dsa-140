@@ -1,13 +1,13 @@
 {
-  "updatedAt": "2026-08-25T06:38:00.348Z",
+  "updatedAt": "2026-08-25T12:38:18.775Z",
   "contests": [
     {
-      "id": "ac-awc0142",
-      "name": "AtCoder Weekday Contest 0142 Beta",
+      "id": "ac-awc0143",
+      "name": "AtCoder Weekday Contest 0143 Beta",
       "platform": "AtCoder",
-      "startsAt": 1787655600000,
+      "startsAt": 1787742000000,
       "durationMin": 60,
-      "url": "https://atcoder.jp/contests/awc0142"
+      "url": "https://atcoder.jp/contests/awc0143"
     },
     {
       "id": "cc-START253",
@@ -48,6 +48,14 @@
       "startsAt": 1788091200000,
       "durationMin": 150,
       "url": "https://atcoder.jp/contests/arc228"
+    },
+    {
+      "id": "cc-START254",
+      "name": "Starters 254",
+      "platform": "CodeChef",
+      "startsAt": 1788359400000,
+      "durationMin": 120,
+      "url": "https://www.codechef.com/START254"
     },
     {
       "id": "ac-arc229",
