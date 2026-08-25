@@ -18,7 +18,12 @@ const src = fs.readFileSync('src/data/aiml.ts', 'utf8')
 const videos = [...src.matchAll(/video: \{ id: "([\w-]{11})", title: "((?:[^"\\]|\\.)*)", seconds: (\d+), channel: "([^"]+)" \}/g)].map(
   (m) => ({ id: m[1], title: JSON.parse(`"${m[2]}"`), seconds: +m[3], channel: m[4] }),
 )
-const readings = [...src.matchAll(/url: "(https:\/\/[^"]+)"/g)].map((m) => m[1])
+// Both quote styles: the generated track days emit double quotes via
+// JSON.stringify, the hand-written lab/platform blocks use single.
+const readings = [
+  ...[...src.matchAll(/url: "(https:\/\/[^"]+)"/g)].map((m) => m[1]),
+  ...[...src.matchAll(/url: '(https:\/\/[^']+)'/g)].map((m) => m[1]),
+]
 
 const head = (url) =>
   new Promise((resolve) => {

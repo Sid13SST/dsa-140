@@ -133,8 +133,15 @@ export default function App() {
     saveAimlLabs(aimlLabs)
   }, [aimlLabs])
 
-  const toggleAimlLab = useCallback((id: string) => {
-    setAimlLabs((p) => ({ ...p, [id]: !p[id] }))
+  /** Labs tick one done-criterion at a time, not the whole lab at once. */
+  const toggleAimlLab = useCallback((id: string, index: number) => {
+    setAimlLabs((p) => {
+      const hit = p[id] ?? []
+      return {
+        ...p,
+        [id]: hit.includes(index) ? hit.filter((i) => i !== index) : [...hit, index],
+      }
+    })
   }, [])
 
   const aimlDoneCount = useMemo(
@@ -344,6 +351,16 @@ export default function App() {
               aimlProgress={aimlProgress}
               aimlQuiz={aimlQuiz}
               aimlLabs={aimlLabs}
+              contests={contests}
+              contestError={contestError}
+              contestsLoading={contestsLoading}
+              contestsUpdatedAt={contestsUpdatedAt}
+              now={now}
+              selected={selected}
+              onSelectDay={(d) => {
+                setSelected(d)
+                goTo('dsa', 'today')
+              }}
               onGo={goTo}
             />
           )}

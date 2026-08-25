@@ -7,8 +7,11 @@ import { allRubric } from '../data/sdPractice'
 import { AIML_LABS, AIML_TOTAL_DAYS, AIML_TRACK } from '../data/aiml'
 import { AIML_PRACTICE_BANK } from '../data/aimlPracticeBank'
 import { aimlRubric } from '../data/aimlPractice'
-import type { LabProgress, SdProgress, SdQuizProgress } from '../lib/storage'
+import { labDone, type LabProgress, type SdProgress, type SdQuizProgress } from '../lib/storage'
 import type { Section } from './Sidebar'
+import type { Contest } from '../types'
+import { ConsistencyGrid } from './Overview'
+import { ContestPanel } from './Panels'
 
 interface Props {
   schedule: Day[]
@@ -19,6 +22,14 @@ interface Props {
   aimlProgress: SdProgress
   aimlQuiz: SdQuizProgress
   aimlLabs: LabProgress
+  contests: Contest[]
+  contestError: string | null
+  contestsLoading: boolean
+  contestsUpdatedAt: number | null
+  /** Shared clock, so contest countdowns here agree with the DSA tab. */
+  now: number
+  selected: string
+  onSelectDay: (iso: string) => void
   onGo: (s: Section, tab?: string) => void
 }
 
@@ -116,6 +127,13 @@ export default function Home({
   aimlProgress,
   aimlQuiz,
   aimlLabs,
+  contests,
+  contestError,
+  contestsLoading,
+  contestsUpdatedAt,
+  now,
+  selected,
+  onSelectDay,
   onGo,
 }: Props) {
   const a = useMemo(
@@ -143,7 +161,7 @@ export default function Home({
       if (!at || at.attempts === 0) return false
       return at.hit.length / aimlRubric(q).length >= 0.8
     }).length
-    const labs = AIML_LABS.filter((l) => aimlLabs[l.id]).length
+    const labs = AIML_LABS.filter((l) => labDone(aimlLabs[l.id], l.done.length)).length
     const next = AIML_TRACK.find((d) => !aimlProgress[d.day]) ?? null
     return { studied, attempted, strong, labs, next }
   }, [aimlProgress, aimlQuiz, aimlLabs])
@@ -185,7 +203,8 @@ export default function Home({
             ) : null}
           </h2>
           <p className="text-[11px] text-muted min-w-0">
-            DSA is the priority — the other two run beside it and finish the same week.
+            DSA is the priority; the others finish the same week. Saved locally — back up from
+            Analytics.
           </p>
         </div>
       </div>
@@ -299,10 +318,34 @@ export default function Home({
         </div>
       </div>
 
-      <p className="text-[11px] text-muted text-center">
-        Everything is stored in this browser. Use <strong>Backup</strong> on the DSA → Analytics tab
-        before switching machines.
-      </p>
+      {/*
+        * The space the three cards leave over. Both of these earn it: the run
+        * grid is the only view where a broken streak is visible at a glance,
+        * and the contest list is the one thing on this page with a deadline.
+        */}
+      <div className="grid lg:grid-cols-3 gap-3 lg:h-[clamp(8rem,24vh,14rem)] lg:auto-rows-fr">
+        <ConsistencyGrid
+          className="lg:col-span-2 min-w-0 lg:min-h-0"
+          schedule={schedule}
+          progress={progress}
+          todayIso={todayIso}
+          selected={selected}
+          onSelect={onSelectDay}
+        />
+        {/* Bounded to the row and scrolling inside itself — an unbounded
+            contest list is 480px tall and pushes everything past the fold.
+            The row height is viewport-relative so this fills a tall screen
+            without forcing a scroll on a short one. */}
+        <ContestPanel
+          className="min-w-0 lg:min-h-0"
+          contests={contests.slice(0, 12)}
+          contestError={contestError}
+          loading={contestsLoading}
+          now={now}
+          updatedAt={contestsUpdatedAt}
+        />
+      </div>
+
     </div>
   )
 }
