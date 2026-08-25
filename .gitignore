@@ -8,3 +8,6 @@ dist
 __pycache__/
 *.pyc
 tsconfig.tsbuildinfo
+
+# Scraped intermediates — regenerate with scripts/scrape-*.cjs
+/data/

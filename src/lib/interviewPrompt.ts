@@ -1,5 +1,38 @@
 import type { SdQuestion } from '../data/sdPractice'
 import { allRubric } from '../data/sdPractice'
+import { aimlRubric } from '../data/aimlPractice'
+
+/**
+ * What changes between a system design interview and an AI/ML one. The
+ * behavioural rules — no praise, one question a turn, attack the weakest claim —
+ * are identical, so only the domain-specific parts are parameterised.
+ */
+export interface InterviewDomain {
+  /** Named in the opening line: "a 45-minute X interview". */
+  discipline: string
+  /** Who is conducting it. */
+  role: string
+  rubricFor: (q: SdQuestion) => { text: string; universal: boolean }[]
+  /** Domain hand-waves the interviewer must refuse to accept. */
+  handWave: string
+  /** What the whiteboard is likely to contain. */
+  whiteboard: string
+  /** A concrete example of a good "study next" bullet, so the grader is specific. */
+  studyExample: string
+  /** One quoted hand-wave, shown in the UI so the tone is clear before you start. */
+  refusalExample: string
+}
+
+export const SYSTEM_DESIGN_DOMAIN: InterviewDomain = {
+  discipline: 'system design',
+  role: 'a senior staff engineer at a large tech company',
+  rubricFor: allRubric,
+  handWave:
+    '("we will just cache it", "it scales horizontally")',
+  whiteboard: 'boxes, arrows and data flow',
+  studyExample: '"Read about quorum reads (R+W>N)" not "study consistency more"',
+  refusalExample: '"we will just cache it"',
+}
 
 /**
  * The interviewer persona.
@@ -11,12 +44,16 @@ import { allRubric } from '../data/sdPractice'
  * on politely. It is deliberately harder than a real interviewer, because
  * practice should be harder than the thing you are practising for.
  */
-export function interviewerSystem(q: SdQuestion, minutes: number): string {
-  const rubric = allRubric(q)
+export function interviewerSystem(
+  q: SdQuestion,
+  minutes: number,
+  domain: InterviewDomain = SYSTEM_DESIGN_DOMAIN,
+): string {
+  const rubric = domain.rubricFor(q)
     .map((r, i) => `${i + 1}. ${r.text}`)
     .join('\n')
 
-  return `You are a senior staff engineer at a large tech company conducting a ${minutes}-minute system design interview. You are experienced, direct, and hard to impress. You are not a tutor and not a cheerleader.
+  return `You are ${domain.role} conducting a ${minutes}-minute ${domain.discipline} interview. You are experienced, direct, and hard to impress. You are not a tutor and not a cheerleader.
 
 THE QUESTION
 "${q.title}" — ${q.scope}
@@ -32,7 +69,7 @@ Then, every turn:
 - Ask ONE question. Never a list. Wait for the answer before the next one.
 - Go after the weakest thing they just said. If they were vague, make them be specific. If they named a technology, ask what it costs them. If they gave a number, ask where it came from.
 - Prefer "why" and "what happens when" over "what". "What happens when that queue backs up?" beats "do you use a queue?".
-- If they hand-wave ("we'll just cache it", "it scales horizontally"), say what is missing and make them fill it in. Do not accept a brand name as an answer to a design question.
+- If they hand-wave ${domain.handWave}, say what is missing and make them fill it in. Do not accept a brand name as an answer to a design question.
 - If they are genuinely correct, say so briefly — one clause, no praise — and immediately push to the next weak point or one layer deeper.
 - If they are stuck for two consecutive turns on the same thing, give the smallest possible nudge, note that you gave it, and move on. Do not solve it for them.
 - If they ask you a clarifying question about requirements, answer it concretely and decisively. That is your job. Invent a reasonable number rather than deflecting.
@@ -48,7 +85,7 @@ TIME
 The session is ${minutes} minutes. The candidate sees a timer. If they have spent a long time on requirements without drawing anything, tell them to move. Around the two-thirds mark, if they have not gone deep on any single component, pick one and make them go deep.
 
 THE WHITEBOARD
-The candidate has a whiteboard and may send you an image of it. When they do, read it as a real interviewer would: comment on what is actually drawn, name what is missing from the diagram specifically, and ask about a component they drew but have not explained. If the image is unreadable or nearly empty, say so plainly.
+The candidate has a whiteboard and may send you an image of it. When they do, read it as a real interviewer would: comment on what is actually drawn — expect ${domain.whiteboard} — name what is missing from the diagram specifically, and ask about a component they drew but have not explained. If the image is unreadable or nearly empty, say so plainly.
 
 Stay in role for the whole session. Do not break character to explain that you are an AI.`
 }
@@ -58,12 +95,15 @@ Stay in role for the whole session. Do not break character to explain that you a
  * never has to hold both roles — being encouraging while grading is exactly how
  * you get an inflated score.
  */
-export function graderSystem(q: SdQuestion): string {
-  const rubric = allRubric(q)
+export function graderSystem(
+  q: SdQuestion,
+  domain: InterviewDomain = SYSTEM_DESIGN_DOMAIN,
+): string {
+  const rubric = domain.rubricFor(q)
     .map((r, i) => `${i + 1}. ${r.text}`)
     .join('\n')
 
-  return `You are grading a system design interview transcript. You were not the interviewer. Be accurate and unsentimental — an inflated grade is worse than useless because the candidate will walk into a real interview believing they are ready.
+  return `You are grading a ${domain.discipline} interview transcript. You were not the interviewer. Be accurate and unsentimental — an inflated grade is worse than useless because the candidate will walk into a real interview believing they are ready.
 
 THE QUESTION
 "${q.title}" — ${q.scope}
@@ -81,7 +121,7 @@ Return your answer as GitHub-flavoured Markdown in exactly this structure:
 One line: **Strong hire** / **Hire** / **Borderline** / **No hire** — plus one sentence of justification.
 
 ## Score
-**N / ${allRubric(q).length}** rubric points hit (count PARTIAL as half, round down).
+**N / ${domain.rubricFor(q).length}** rubric points hit (count PARTIAL as half, round down).
 
 ## Rubric
 A markdown table with columns: Point | Result | Evidence. One row per rubric point, in order. "Result" is HIT / PARTIAL / MISS. "Evidence" quotes or closely paraphrases what they actually said, or says "not raised".
@@ -90,7 +130,24 @@ A markdown table with columns: Point | Result | Evidence. One row per rubric poi
 The two or three specific things that most hurt this answer, in priority order. Be concrete — name the moment.
 
 ## Study next
-Three bullets, each a specific topic, not a platitude. "Read about quorum reads (R+W>N)" not "study consistency more".
+Three bullets, each a specific topic, not a platitude. ${domain.studyExample}.
 
 Do not add sections. Do not soften the verdict.`
+}
+
+/**
+ * The AI/ML variant. The behavioural rules are unchanged; what differs is what
+ * counts as a hand-wave. In ML the vague answers are about data and evaluation
+ * — "we'd fine-tune it", "we'd use RAG" — not about sharding.
+ */
+export const AIML_DOMAIN: InterviewDomain = {
+  discipline: 'AI/ML engineering',
+  role: 'a senior ML engineer at a large tech company who has shipped and operated production models',
+  rubricFor: aimlRubric,
+  handWave:
+    '("we\'d fine-tune it", "we\'d use RAG", "we\'d add embeddings", "the model handles that") without saying what data, what labels, what metric or what it costs',
+  whiteboard: 'a data flow, a training pipeline, or a serving path',
+  studyExample:
+    '"Read about point-in-time correct joins in feature stores" not "learn more about data pipelines"',
+  refusalExample: '"we would just fine-tune it"',
 }
