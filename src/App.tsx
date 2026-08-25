@@ -323,9 +323,13 @@ export default function App() {
                 contests={selectedDayContests}
               />
             </div>
-            <div className="space-y-3 min-w-0">
+            {/* A bounded height keeps the right column roughly level with the
+                day panel; without it fourteen contests made this column almost
+                twice as tall and forced a long page scroll. */}
+            <div className="space-y-3 min-w-0 lg:h-[38rem] lg:flex lg:flex-col">
               <DayResources day={selectedDay} />
               <ContestPanel
+                className="lg:flex-1 lg:min-h-0"
                 contests={contests.slice(0, 14)}
                 contestError={contestError}
                 loading={contestsLoading}
@@ -348,7 +352,7 @@ export default function App() {
             {/* min-w-0 on every grid item: grid tracks default to
                 min-width:auto, so a wide child stretches the page instead of
                 scrolling inside its own card. */}
-            <div className="grid lg:grid-cols-3 gap-3 items-start">
+            <div className="grid lg:grid-cols-3 gap-3 lg:h-[30rem] lg:auto-rows-fr">
               <div className="min-w-0">
                 <CalendarView
                   schedule={SCHEDULE}

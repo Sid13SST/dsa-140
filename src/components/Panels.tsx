@@ -85,8 +85,8 @@ export function CalendarView({
   const idx = months.indexOf(month)
 
   return (
-    <div className="card p-3">
-      <div className="flex items-center justify-between mb-2">
+    <div className="card p-3 h-full flex flex-col">
+      <div className="flex items-center justify-between mb-2 shrink-0">
         <button
           className="btn px-2 py-1 disabled:opacity-30"
           disabled={idx <= 0}
@@ -197,6 +197,7 @@ export function ContestPanel({
   loading,
   now,
   updatedAt,
+  className = '',
 }: {
   contests: Contest[]
   contestError: string | null
@@ -204,6 +205,8 @@ export function ContestPanel({
   /** Shared clock from App, so countdowns and the finished-contest filter agree. */
   now: number
   updatedAt: number | null
+  /** Lets the parent decide how this card fills its column. */
+  className?: string
 }) {
   const [platformFilter, setPlatformFilter] = useState<Contest['platform'] | 'all'>('all')
 
@@ -215,9 +218,12 @@ export function ContestPanel({
   const ageMs = updatedAt === null ? null : now - updatedAt
   const stale = ageMs !== null && ageMs > 12 * 60 * 60 * 1000
 
+  // Same shape as TopicProgress: the card fills its slot, the list scrolls.
+  // Fourteen contests otherwise made this card ~990px and dragged the whole
+  // page down twice the height of the day panel beside it.
   return (
-    <div className="card p-3">
-      <div className="flex items-baseline justify-between mb-2 gap-2">
+    <div className={`card p-3 h-full flex flex-col max-h-[32rem] lg:max-h-none ${className}`}>
+      <div className="flex items-baseline justify-between mb-2 gap-2 shrink-0">
         <span className="eyebrow">upcoming contests</span>
         <div className="flex items-center gap-1.5 flex-wrap justify-end">
           {(Object.keys(PLATFORMS) as (keyof typeof PLATFORMS)[]).map((p) => (
@@ -235,7 +241,7 @@ export function ContestPanel({
         </div>
       </div>
 
-      <div className="flex gap-1 mb-2 flex-wrap">
+      <div className="flex gap-1 mb-2 flex-wrap shrink-0">
         <button
           onClick={() => setPlatformFilter('all')}
           className={`font-mono text-[10px] px-1.5 py-0.5 rounded border transition-colors ${
@@ -266,7 +272,7 @@ export function ContestPanel({
         })}
       </div>
 
-      {loading && <p className="text-sm text-muted py-2">Loading contests…</p>}
+      {loading && <p className="text-sm text-muted py-2 shrink-0">Loading contests…</p>}
 
       {contestError && (
         <p className="text-xs text-warn mb-2 leading-snug">{contestError}</p>
@@ -279,7 +285,7 @@ export function ContestPanel({
         </p>
       )}
 
-      <ul className="divide-y divide-rule">
+      <ul className="divide-y divide-rule flex-1 min-h-0 overflow-y-auto pr-1">
         {shown.map((c) => {
           const dt = new Date(c.startsAt)
           return (
@@ -363,10 +369,13 @@ export function TopicProgress({
     return [...map.entries()].sort((a, b) => b[1].total - a[1].total)
   }, [schedule, progress])
 
+  // h-full + flex column so the card fills its grid row and the list — not the
+  // card — takes the scrolling. min-h-0 is what actually lets a flex child
+  // shrink below its content and scroll.
   return (
-    <div className="card p-3">
-      <span className="eyebrow">coverage by topic</span>
-      <ul className="mt-2 space-y-1.5">
+    <div className="card p-3 h-full flex flex-col max-h-[28rem] lg:max-h-none">
+      <span className="eyebrow shrink-0">coverage by topic</span>
+      <ul className="mt-2 space-y-1.5 flex-1 min-h-0 overflow-y-auto pr-1">
         {rows.map(([topic, r]) => {
           const pct = Math.round((r.done / r.total) * 100)
           return (
