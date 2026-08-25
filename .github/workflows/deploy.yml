@@ -28,9 +28,20 @@ jobs:
         # A build without these deploys a site that cannot sign anyone in. It
         # still works — the app says so plainly rather than white-screening —
         # but the cause should be visible here and not only in the browser.
-        if: ${{ !(vars.VITE_SUPABASE_URL || secrets.VITE_SUPABASE_URL) }}
+        #
+        # The emptiness check is done in the shell, NOT in an `if:` expression.
+        # The secrets context is unavailable in step-level `if:`, and using it
+        # there does not warn — it makes the entire workflow file invalid, so
+        # every run fails before starting a job. That is exactly what happened
+        # in runs 27 and 28.
+        env:
+          SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
         run: |
-          echo "::warning::VITE_SUPABASE_URL is not set. Add it under Settings -> Secrets and variables -> Actions -> Variables. Sign-in will be disabled on this deploy."
+          if [ -z "$SUPABASE_URL" ]; then
+            echo "::warning::VITE_SUPABASE_URL is not set. Add it under Settings -> Secrets and variables -> Actions -> Variables, then re-run this workflow. Sign-in will be disabled on this deploy."
+          else
+            echo "Supabase is configured for this build."
+          fi
 
       - name: Build
         # Pages serves this repo at /dsa-140/, not at the root.
