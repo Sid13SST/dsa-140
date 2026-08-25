@@ -1,4 +1,4 @@
-export type Section = 'home' | 'dsa' | 'design'
+export type Section = 'home' | 'dsa' | 'design' | 'aiml'
 
 interface Props {
   active: Section
@@ -8,13 +8,14 @@ interface Props {
 }
 
 const ITEMS: { id: Section; label: string; icon: string; blurb: string }[] = [
-  { id: 'home', label: 'Overview', icon: '◈', blurb: 'Both tracks at a glance' },
+  { id: 'home', label: 'Overview', icon: '◈', blurb: 'All three tracks at a glance' },
   { id: 'dsa', label: 'DSA', icon: '⌘', blurb: '140-day problem plan' },
   { id: 'design', label: 'System Design', icon: '⬢', blurb: 'Study, practice, interview' },
+  { id: 'aiml', label: 'AI / ML', icon: '◉', blurb: 'Engineering track, labs, interview' },
 ]
 
 /**
- * Rail on desktop, horizontal strip on mobile. The two tracks are genuinely
+ * Rail on desktop, horizontal strip on mobile. The three tracks are genuinely
  * separate practices with separate cadences, so they get separate sections
  * rather than competing for one row of tabs.
  */

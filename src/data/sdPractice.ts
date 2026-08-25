@@ -24,6 +24,13 @@ export interface SdQuestion {
   clarify: string[]
   /** Question-specific points a strong answer hits. Grade yourself on these. */
   rubric: string[]
+  /**
+   * Which kind of exercise this is. Only the AI/ML banks set it — system design
+   * questions are all the same shape, but ML practice mixes explain-the-concept,
+   * find-the-bug, design-the-system and work-out-the-cost, and they are not
+   * interchangeable.
+   */
+  family?: string
   video?: SdVideo
   reading?: SdReading
 }

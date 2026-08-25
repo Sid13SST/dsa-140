@@ -9,11 +9,17 @@ import {
   loadLocal,
   loadSd,
   loadSdQuiz,
+  loadAiml,
+  loadAimlQuiz,
+  loadAimlLabs,
   saveLocal,
   saveSd,
   saveSdQuiz,
+  saveAiml,
+  saveAimlQuiz,
+  saveAimlLabs,
 } from './lib/storage'
-import type { SdAttempt, SdProgress, SdQuizProgress } from './lib/storage'
+import type { LabProgress, SdAttempt, SdProgress, SdQuizProgress } from './lib/storage'
 import { hasFinished, loadAllContests } from './lib/contests'
 import { useNow } from './lib/useNow'
 import { useTheme } from './lib/theme'
@@ -25,9 +31,15 @@ import Tabs from './components/Tabs'
 import Sidebar, { type Section } from './components/Sidebar'
 import Home from './components/Home'
 import { SD_TRACK, SD_TOTAL_DAYS } from './data/systemDesign'
+import { AIML_TRACK, AIML_TOTAL_DAYS } from './data/aiml'
 import ResourceLibrary, { DayResources } from './components/Resources'
 import SystemDesign from './components/SystemDesign'
 import SdPractice from './components/SdPractice'
+import AimlStudy from './components/AimlStudy'
+import AimlPractice from './components/AimlPractice'
+import AimlLabs from './components/AimlLabs'
+import { AIML_DOMAIN } from './lib/interviewPrompt'
+import { AIML_INTERVIEW } from './data/aimlPractice'
 // The Gemini SDK is sizeable and only needed in interview mode, so it loads
 // on demand rather than in the initial bundle.
 const AiInterview = lazy(() => import('./components/AiInterview'))
@@ -35,6 +47,7 @@ import { CalendarView, ContestPanel, TopicProgress } from './components/Panels'
 
 type DsaTab = 'today' | 'progress' | 'analytics' | 'learn'
 type DesignTab = 'study' | 'practice' | 'interview'
+type AimlTab = 'study' | 'practice' | 'labs' | 'interview'
 
 const iso = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -96,11 +109,47 @@ export default function App() {
   // Which half of the Design tab is showing: the reading queue or the questions.
   const [designTab, setDesignTab] = useState<DesignTab>('study')
 
+  /* ------------------------------ ai/ml track ------------------------------ */
+  const [aimlProgress, setAimlProgress] = useState<SdProgress>(() => loadAiml())
+  useEffect(() => {
+    saveAiml(aimlProgress)
+  }, [aimlProgress])
+
+  const toggleAimlDay = useCallback((day: number) => {
+    setAimlProgress((p) => ({ ...p, [day]: !p[day] }))
+  }, [])
+
+  const [aimlQuiz, setAimlQuiz] = useState<SdQuizProgress>(() => loadAimlQuiz())
+  useEffect(() => {
+    saveAimlQuiz(aimlQuiz)
+  }, [aimlQuiz])
+
+  const setAimlAttempt = useCallback((id: string, next: SdAttempt) => {
+    setAimlQuiz((p) => ({ ...p, [id]: next }))
+  }, [])
+
+  const [aimlLabs, setAimlLabs] = useState<LabProgress>(() => loadAimlLabs())
+  useEffect(() => {
+    saveAimlLabs(aimlLabs)
+  }, [aimlLabs])
+
+  const toggleAimlLab = useCallback((id: string) => {
+    setAimlLabs((p) => ({ ...p, [id]: !p[id] }))
+  }, [])
+
+  const aimlDoneCount = useMemo(
+    () => AIML_TRACK.filter((d) => aimlProgress[d.day]).length,
+    [aimlProgress],
+  )
+
+  const [aimlTab, setAimlTab] = useState<AimlTab>('study')
+
   /** Jump straight from the overview into a specific tab. */
   const goTo = useCallback((s: Section, t?: string) => {
     setSection(s)
     if (s === 'dsa' && t) setDsaTab(t as DsaTab)
     if (s === 'design' && t) setDesignTab(t as DesignTab)
+    if (s === 'aiml' && t) setAimlTab(t as AimlTab)
   }, [])
 
   /*
@@ -280,6 +329,7 @@ export default function App() {
           hints={{
             dsa: dayNumber ? `d${dayNumber}` : undefined,
             design: `${Math.round((sdDoneCount / SD_TOTAL_DAYS) * 100)}%`,
+            aiml: `${Math.round((aimlDoneCount / AIML_TOTAL_DAYS) * 100)}%`,
           }}
         />
 
@@ -291,6 +341,9 @@ export default function App() {
               todayIso={todayIso}
               sdProgress={sdProgress}
               sdQuiz={sdQuiz}
+              aimlProgress={aimlProgress}
+              aimlQuiz={aimlQuiz}
+              aimlLabs={aimlLabs}
               onGo={goTo}
             />
           )}
@@ -440,6 +493,44 @@ export default function App() {
                   }
                 >
                   <AiInterview />
+                </Suspense>
+              )}
+            </>
+          )}
+
+          {section === 'aiml' && (
+            <>
+              <Tabs
+                tabs={[
+                  { id: 'study' as const, label: 'Study' },
+                  { id: 'practice' as const, label: 'Practice' },
+                  { id: 'labs' as const, label: 'Labs' },
+                  { id: 'interview' as const, label: 'AI Interview' },
+                ]}
+                active={aimlTab}
+                onChange={setAimlTab}
+              />
+
+              {aimlTab === 'study' && (
+                <AimlStudy progress={aimlProgress} onToggle={toggleAimlDay} />
+              )}
+              {aimlTab === 'practice' && (
+                <AimlPractice progress={aimlQuiz} onChange={setAimlAttempt} />
+              )}
+              {aimlTab === 'labs' && (
+                <AimlLabs labs={aimlLabs} onToggle={toggleAimlLab} study={aimlProgress} />
+              )}
+              {aimlTab === 'interview' && (
+                <Suspense
+                  fallback={
+                    <div className="card p-6 text-center text-sm text-muted">Loading…</div>
+                  }
+                >
+                  <AiInterview
+                    bank={AIML_INTERVIEW}
+                    domain={AIML_DOMAIN}
+                    eyebrow="ai/ml interviewer"
+                  />
                 </Suspense>
               )}
             </>

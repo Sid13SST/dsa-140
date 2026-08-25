@@ -87,3 +87,64 @@ export function saveSdQuiz(p: SdQuizProgress) {
 }
 
 export const emptyAttempt = (): SdAttempt => ({ hit: [], attempts: 0, lastAt: null, notes: '' })
+
+/* ------------------------------ ai/ml track ------------------------------ */
+
+const AIML_KEY = 'dsa140:aiml:v1'
+const AIMLQ_KEY = 'dsa140:aimlpractice:v1'
+const AIMLLAB_KEY = 'dsa140:aimllabs:v1'
+
+/** Day number → done. Isolated from DSA and system design for the same reason. */
+export function loadAiml(): SdProgress {
+  try {
+    const raw = localStorage.getItem(AIML_KEY)
+    return raw ? (JSON.parse(raw) as SdProgress) : {}
+  } catch {
+    return {}
+  }
+}
+
+export function saveAiml(p: SdProgress) {
+  try {
+    localStorage.setItem(AIML_KEY, JSON.stringify(p))
+  } catch {
+    // Non-fatal, same as the other tracks.
+  }
+}
+
+export function loadAimlQuiz(): SdQuizProgress {
+  try {
+    const raw = localStorage.getItem(AIMLQ_KEY)
+    return raw ? (JSON.parse(raw) as SdQuizProgress) : {}
+  } catch {
+    return {}
+  }
+}
+
+export function saveAimlQuiz(p: SdQuizProgress) {
+  try {
+    localStorage.setItem(AIMLQ_KEY, JSON.stringify(p))
+  } catch {
+    // Non-fatal.
+  }
+}
+
+/** Lab id → done. Labs are weekend-sized, so they are tracked apart from days. */
+export type LabProgress = Record<string, boolean>
+
+export function loadAimlLabs(): LabProgress {
+  try {
+    const raw = localStorage.getItem(AIMLLAB_KEY)
+    return raw ? (JSON.parse(raw) as LabProgress) : {}
+  } catch {
+    return {}
+  }
+}
+
+export function saveAimlLabs(p: LabProgress) {
+  try {
+    localStorage.setItem(AIMLLAB_KEY, JSON.stringify(p))
+  } catch {
+    // Non-fatal.
+  }
+}

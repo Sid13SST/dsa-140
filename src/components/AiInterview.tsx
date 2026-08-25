@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { SD_QUESTIONS, TIERS, type QTier, type SdQuestion } from '../data/sdPractice'
-import { graderSystem, interviewerSystem } from '../lib/interviewPrompt'
+import {
+  graderSystem,
+  interviewerSystem,
+  SYSTEM_DESIGN_DOMAIN,
+  type InterviewDomain,
+} from '../lib/interviewPrompt'
 import {
   completeOnce,
   explainError,
@@ -134,11 +139,12 @@ function KeySetup({ onReady }: { onReady: () => void }) {
 /* ------------------------------- the room ------------------------------ */
 
 interface RoomProps {
+  domain: InterviewDomain
   q: SdQuestion
   onExit: () => void
 }
 
-function Room({ q, onExit }: RoomProps) {
+function Room({ q, onExit, domain }: RoomProps) {
   const [turns, setTurns] = useState<Turn[]>([])
   const [streaming, setStreaming] = useState('')
   const [busy, setBusy] = useState(false)
@@ -151,7 +157,7 @@ function Room({ q, onExit }: RoomProps) {
   const abortRef = useRef<AbortController | null>(null)
   const logRef = useRef<HTMLDivElement>(null)
 
-  const system = useMemo(() => interviewerSystem(q, MINUTES), [q])
+  const system = useMemo(() => interviewerSystem(q, MINUTES, domain), [q, domain])
 
   useEffect(() => {
     if (!running) return
@@ -216,7 +222,7 @@ function Room({ q, onExit }: RoomProps) {
         .map((t) => `${t.role === 'user' ? 'CANDIDATE' : 'INTERVIEWER'}: ${t.text}`)
         .join('\n\n')
       const out = await completeOnce(
-        graderSystem(q),
+        graderSystem(q, domain),
         [{ role: 'user', text: `Here is the full transcript.\n\n${transcript}` }],
         4000,
         (secs, n) => setRetryNote(`Model busy — retrying grade in ${secs}s (attempt ${n + 1})…`),
@@ -391,7 +397,18 @@ function Room({ q, onExit }: RoomProps) {
 
 /* ------------------------------ the picker ----------------------------- */
 
-export default function AiInterview() {
+interface Props {
+  /** Which bank to draw questions from. Defaults to the system design set. */
+  bank?: SdQuestion[]
+  domain?: InterviewDomain
+  eyebrow?: string
+}
+
+export default function AiInterview({
+  bank = SD_QUESTIONS,
+  domain = SYSTEM_DESIGN_DOMAIN,
+  eyebrow = 'ai interviewer',
+}: Props = {}) {
   // A key alone isn't enough — without a chosen model every call would fail.
   const [keyReady, setKeyReady] = useState(hasApiKey() && !!loadModel())
   const [openId, setOpenId] = useState<string | null>(null)
@@ -399,24 +416,24 @@ export default function AiInterview() {
 
   if (!keyReady) return <KeySetup onReady={() => setKeyReady(true)} />
 
-  const open = openId ? SD_QUESTIONS.find((q) => q.id === openId) ?? null : null
-  if (open) return <Room q={open} onExit={() => setOpenId(null)} />
+  const open = openId ? bank.find((q) => q.id === openId) ?? null : null
+  if (open) return <Room q={open} onExit={() => setOpenId(null)} domain={domain} />
 
-  const visible = SD_QUESTIONS.filter((q) => tier === 'all' || q.tier === tier)
+  const visible = bank.filter((q) => tier === 'all' || q.tier === tier)
 
   return (
     <div className="space-y-3">
       <div className="card p-3">
         <div className="flex items-baseline justify-between gap-2 flex-wrap">
-          <span className="eyebrow">ai interviewer</span>
+          <span className="eyebrow">{eyebrow}</span>
           <button className="btn text-xs" onClick={() => setKeyReady(false)}>
             API key
           </button>
         </div>
         <p className="text-[13px] mt-1.5">
           A strict {MINUTES}-minute mock round. It asks one question at a time, goes after your
-          weakest answer, and will not accept "we'll just cache it". You get a whiteboard, and it
-          reads what you draw.
+          weakest answer, and will not accept {domain.refusalExample}. You get a whiteboard, and
+          it reads what you draw.
         </p>
         <p className="text-[11px] text-muted mt-1.5">
           It grades you at the end against the same rubric as self-practice — but from the
@@ -430,15 +447,15 @@ export default function AiInterview() {
             onClick={() => setTier('all')}
             className={`btn text-xs ${tier === 'all' ? 'btn-primary' : ''}`}
           >
-            All {SD_QUESTIONS.length}
+            All {bank.length}
           </button>
-          {TIERS.map((t) => (
+          {TIERS.filter((t) => bank.some((x) => x.tier === t)).map((t) => (
             <button
               key={t}
               onClick={() => setTier(tier === t ? 'all' : t)}
               className={`btn text-xs capitalize ${tier === t ? 'btn-primary' : ''}`}
             >
-              {t} {SD_QUESTIONS.filter((x) => x.tier === t).length}
+              {t} {bank.filter((x) => x.tier === t).length}
             </button>
           ))}
         </div>
