@@ -1,4 +1,4 @@
-export type Section = 'home' | 'dsa' | 'design' | 'aiml'
+export type Section = 'home' | 'dsa' | 'rail' | 'library'
 
 interface Props {
   active: Section
@@ -8,16 +8,19 @@ interface Props {
 }
 
 const ITEMS: { id: Section; label: string; icon: string; blurb: string }[] = [
-  { id: 'home', label: 'Overview', icon: '◈', blurb: 'All three tracks at a glance' },
+  { id: 'home', label: 'Overview', icon: '◈', blurb: 'Both tracks at a glance' },
   { id: 'dsa', label: 'DSA', icon: '⌘', blurb: '140-day problem plan' },
-  { id: 'design', label: 'System Design', icon: '⬢', blurb: 'Study, practice, interview' },
-  { id: 'aiml', label: 'AI / ML', icon: '◉', blurb: 'Engineering track, labs, interview' },
+  { id: 'rail', label: 'The 200', icon: '⬢', blurb: 'One 20-min thread beside DSA' },
+  { id: 'library', label: 'Library', icon: '◉', blurb: 'Full tracks, labs, resources' },
 ]
 
 /**
- * Rail on desktop, horizontal strip on mobile. The three tracks are genuinely
- * separate practices with separate cadences, so they get separate sections
- * rather than competing for one row of tabs.
+ * Rail on desktop, horizontal strip on mobile.
+ *
+ * Two obligations, not three: DSA and one 20-minute thread. System design and
+ * AI/ML used to be separate sections, which meant three streaks and three ways
+ * to feel behind. They are now interleaved into The 200, with their full
+ * versions parked in the Library where nothing is on a schedule.
  */
 export default function Sidebar({ active, onChange, hints }: Props) {
   return (
