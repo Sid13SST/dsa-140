@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { allRubric, SD_QUESTIONS, TIERS, type QTier, type SdQuestion } from '../data/sdPractice'
+import { allRubric, TIERS, type QTier, type SdQuestion } from '../data/sdPractice'
+// Practice uses its own 50-question bank; the AI interviewer keeps sdPractice's
+// 24. Sharing them would make the interview a memory test.
+import { SD_PRACTICE_BANK as SD_QUESTIONS } from '../data/sdPracticeBank'
 import { runtimeLabel, videoUrl } from '../data/systemDesign'
 import { emptyAttempt, type SdAttempt, type SdQuizProgress } from '../lib/storage'
 
