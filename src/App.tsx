@@ -22,6 +22,9 @@ import { ConsistencyGrid, StatsBar } from './components/Overview'
 import Analytics from './components/Analytics'
 import DayPanel from './components/DayPanel'
 import Tabs from './components/Tabs'
+import Sidebar, { type Section } from './components/Sidebar'
+import Home from './components/Home'
+import { SD_TRACK, SD_TOTAL_DAYS } from './data/systemDesign'
 import ResourceLibrary, { DayResources } from './components/Resources'
 import SystemDesign from './components/SystemDesign'
 import SdPractice from './components/SdPractice'
@@ -30,7 +33,8 @@ import SdPractice from './components/SdPractice'
 const AiInterview = lazy(() => import('./components/AiInterview'))
 import { CalendarView, ContestPanel, TopicProgress } from './components/Panels'
 
-type TabId = 'today' | 'progress' | 'analytics' | 'learn' | 'design'
+type DsaTab = 'today' | 'progress' | 'analytics' | 'learn'
+type DesignTab = 'study' | 'practice' | 'interview'
 
 const iso = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -54,7 +58,8 @@ export default function App() {
   const [progress, setProgress] = useState<Progress>(() => loadLocal())
   const [selected, setSelected] = useState(() => resolveToday(iso(new Date())))
   const [generatingPdf, setGeneratingPdf] = useState(false)
-  const [tab, setTab] = useState<TabId>('today')
+  const [section, setSection] = useState<Section>('home')
+  const [dsaTab, setDsaTab] = useState<DsaTab>('today')
   const fileRef = useRef<HTMLInputElement>(null)
   const theme = useTheme()
 
@@ -68,6 +73,11 @@ export default function App() {
   useEffect(() => {
     saveSd(sdProgress)
   }, [sdProgress])
+
+  const sdDoneCount = useMemo(
+    () => SD_TRACK.filter((d) => sdProgress[d.day]).length,
+    [sdProgress],
+  )
 
   const toggleSdDay = useCallback((day: number) => {
     setSdProgress((p) => ({ ...p, [day]: !p[day] }))
@@ -84,7 +94,14 @@ export default function App() {
   }, [])
 
   // Which half of the Design tab is showing: the reading queue or the questions.
-  const [designMode, setDesignMode] = useState<'study' | 'practice' | 'interview'>('study')
+  const [designTab, setDesignTab] = useState<DesignTab>('study')
+
+  /** Jump straight from the overview into a specific tab. */
+  const goTo = useCallback((s: Section, t?: string) => {
+    setSection(s)
+    if (s === 'dsa' && t) setDsaTab(t as DsaTab)
+    if (s === 'design' && t) setDesignTab(t as DesignTab)
+  }, [])
 
   /*
    * Contests load once here and are shared by the contest panel and the
@@ -256,22 +273,43 @@ export default function App() {
         onToggleTheme={theme.toggle}
       />
 
-      <main className="max-w-6xl mx-auto px-4 py-3 space-y-3">
-        <StatsBar schedule={SCHEDULE} progress={progress} todayIso={todayIso} />
-
-        <Tabs
-          tabs={[
-            { id: 'today' as const, label: 'Today' },
-            { id: 'progress' as const, label: 'Progress' },
-            { id: 'analytics' as const, label: 'Analytics' },
-            { id: 'learn' as const, label: 'Learn' },
-            { id: 'design' as const, label: 'Design' },
-          ]}
-          active={tab}
-          onChange={setTab}
+      <main className="max-w-7xl mx-auto px-4 py-3 lg:flex lg:gap-4 lg:items-start">
+        <Sidebar
+          active={section}
+          onChange={setSection}
+          hints={{
+            dsa: dayNumber ? `d${dayNumber}` : undefined,
+            design: `${Math.round((sdDoneCount / SD_TOTAL_DAYS) * 100)}%`,
+          }}
         />
 
-        {tab === 'today' && (
+        <div className="flex-1 min-w-0 space-y-3 mt-3 lg:mt-0">
+          {section === 'home' && (
+            <Home
+              schedule={SCHEDULE}
+              progress={progress}
+              todayIso={todayIso}
+              sdProgress={sdProgress}
+              sdQuiz={sdQuiz}
+              onGo={goTo}
+            />
+          )}
+
+          {section === 'dsa' && (
+            <>
+              <StatsBar schedule={SCHEDULE} progress={progress} todayIso={todayIso} />
+              <Tabs
+                tabs={[
+                  { id: 'today' as const, label: 'Today' },
+                  { id: 'progress' as const, label: 'Progress' },
+                  { id: 'analytics' as const, label: 'Analytics' },
+                  { id: 'learn' as const, label: 'Learn' },
+                ]}
+                active={dsaTab}
+                onChange={setDsaTab}
+              />
+
+        {dsaTab === 'today' && (
           <div className="grid lg:grid-cols-3 gap-3 items-start">
             {/* min-w-0: grid items default to min-width:auto, so a wide child
                 (a long resource label) would otherwise stretch the track past
@@ -298,7 +336,7 @@ export default function App() {
           </div>
         )}
 
-        {tab === 'progress' && (
+        {dsaTab === 'progress' && (
           <div className="space-y-3">
             <ConsistencyGrid
               schedule={SCHEDULE}
@@ -307,22 +345,29 @@ export default function App() {
               selected={selected}
               onSelect={setSelected}
             />
+            {/* min-w-0 on every grid item: grid tracks default to
+                min-width:auto, so a wide child stretches the page instead of
+                scrolling inside its own card. */}
             <div className="grid lg:grid-cols-3 gap-3 items-start">
-              <CalendarView
-                schedule={SCHEDULE}
-                progress={progress}
-                todayIso={todayIso}
-                selected={selected}
-                onSelect={setSelected}
-                contests={contests}
-              />
-              <TopicProgress schedule={SCHEDULE} progress={progress} />
-              <div className="space-y-3">{backlogPanel}</div>
+              <div className="min-w-0">
+                <CalendarView
+                  schedule={SCHEDULE}
+                  progress={progress}
+                  todayIso={todayIso}
+                  selected={selected}
+                  onSelect={setSelected}
+                  contests={contests}
+                />
+              </div>
+              <div className="min-w-0">
+                <TopicProgress schedule={SCHEDULE} progress={progress} />
+              </div>
+              <div className="space-y-3 min-w-0">{backlogPanel}</div>
             </div>
           </div>
         )}
 
-        {tab === 'analytics' && (
+        {dsaTab === 'analytics' && (
           <div className="space-y-3">
             <Analytics schedule={SCHEDULE} progress={progress} todayIso={todayIso} />
 
@@ -362,47 +407,44 @@ export default function App() {
           </div>
         )}
 
-        {tab === 'learn' && <ResourceLibrary schedule={SCHEDULE} />}
+        {dsaTab === 'learn' && <ResourceLibrary schedule={SCHEDULE} />}
+            </>
+          )}
 
-        {tab === 'design' && (
-          <div className="space-y-3">
-            <div className="card p-1 flex gap-1">
-              {(['study', 'practice', 'interview'] as const).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setDesignMode(m)}
-                  className={`flex-1 px-3 py-1.5 rounded-lg text-sm font-semibold capitalize
-                    transition-all focus-visible:outline-none focus-visible:ring-2
-                    focus-visible:ring-brand/50 ${
-                      designMode === m
-                        ? 'bg-brand text-on-accent shadow-glow'
-                        : 'text-muted hover:text-ink hover:bg-ground'
-                    }`}
+          {section === 'design' && (
+            <>
+              <Tabs
+                tabs={[
+                  { id: 'study' as const, label: 'Study' },
+                  { id: 'practice' as const, label: 'Practice' },
+                  { id: 'interview' as const, label: 'AI Interview' },
+                ]}
+                active={designTab}
+                onChange={setDesignTab}
+              />
+
+              {designTab === 'study' && (
+                <SystemDesign progress={sdProgress} onToggle={toggleSdDay} />
+              )}
+              {designTab === 'practice' && (
+                <SdPractice progress={sdQuiz} onChange={setSdAttempt} />
+              )}
+              {designTab === 'interview' && (
+                <Suspense
+                  fallback={
+                    <div className="card p-6 text-center text-sm text-muted">Loading…</div>
+                  }
                 >
-                  {m === 'study' ? 'Study' : m === 'practice' ? 'Practice' : 'AI Interview'}
-                </button>
-              ))}
-            </div>
+                  <AiInterview />
+                </Suspense>
+              )}
+            </>
+          )}
 
-            {designMode === 'study' && (
-              <SystemDesign progress={sdProgress} onToggle={toggleSdDay} />
-            )}
-            {designMode === 'practice' && (
-              <SdPractice progress={sdQuiz} onChange={setSdAttempt} />
-            )}
-            {designMode === 'interview' && (
-              <Suspense
-                fallback={<div className="card p-6 text-center text-sm text-muted">Loading…</div>}
-              >
-                <AiInterview />
-              </Suspense>
-            )}
-          </div>
-        )}
-
-        <footer className="text-center text-[11px] text-muted py-3">
-          140 days · 22 Aug 2026 → 8 Jan 2027 · interview-ready checkpoint 31 Dec
-        </footer>
+          <footer className="text-center text-[11px] text-muted py-3">
+            140 days · 22 Aug 2026 → 8 Jan 2027 · interview-ready checkpoint 31 Dec
+          </footer>
+        </div>
       </main>
     </div>
   )
