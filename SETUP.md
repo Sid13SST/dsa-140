@@ -62,8 +62,17 @@ they close the tab mid-payment, the webhook still marks them paid.
 
 ## 3. Environment variables
 
-Locally, copy `.env.example` to `.env.local` and fill it in. For deployment,
-put the same values in Vercel under Project → Settings → Environment Variables.
+These are read at **build** time and compiled into the bundle, so setting them
+always means a rebuild. A running deploy cannot be fixed by changing a setting.
+
+- **Locally** — copy `.env.example` to `.env.local`, fill it in, restart `npm run dev`.
+- **GitHub Pages** — repo → Settings → Secrets and variables → Actions →
+  **Variables** tab → New repository variable. Add `VITE_SUPABASE_URL` and
+  `VITE_SUPABASE_ANON_KEY`. The workflow reads variables first and falls back to
+  secrets, so either tab works; Variables is the honest one, because these two
+  end up publicly readable in the bundle regardless.
+  Then re-run the deploy workflow (Actions → Deploy to GitHub Pages → Run workflow).
+- **Vercel** — Project → Settings → Environment Variables.
 
 With payments off you need only the first two, plus
 `VITE_PAYMENTS_ENABLED=false`.
