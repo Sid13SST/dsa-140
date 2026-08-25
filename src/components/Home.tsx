@@ -22,6 +22,7 @@ interface Props {
   onGo: (s: Section, tab?: string) => void
 }
 
+/** The full-size stat. Used only by DSA — it is the track that decides things. */
 function Stat({
   label,
   value,
@@ -34,12 +35,28 @@ function Stat({
   tone?: string
 }) {
   return (
-    <div>
+    <div className="min-w-0">
       <div className="eyebrow">{label}</div>
-      <div className={`font-mono text-2xl font-bold tabular-nums mt-0.5 leading-none ${tone ?? ''}`}>
+      <div className={`font-mono text-3xl font-bold tabular-nums mt-0.5 leading-none ${tone ?? ''}`}>
         {value}
       </div>
-      <div className="text-[11px] text-muted mt-1">{sub}</div>
+      <div className="text-[11px] text-muted mt-1 truncate">{sub}</div>
+    </div>
+  )
+}
+
+/**
+ * The condensed stat for the two secondary tracks: value and label share one
+ * baseline instead of stacking. That is what buys the vertical space which
+ * keeps this page inside a single screen.
+ */
+function MiniStat({ value, label, tone }: { value: string; label: string; tone?: string }) {
+  return (
+    <div className="flex items-baseline gap-1 min-w-0">
+      <span className={`font-mono text-lg font-bold tabular-nums leading-none ${tone ?? ''}`}>
+        {value}
+      </span>
+      <span className="text-[10px] text-muted truncate">{label}</span>
     </div>
   )
 }
@@ -48,6 +65,44 @@ function Bar({ pct, tone = 'bg-brand' }: { pct: number; tone?: string }) {
   return (
     <div className="h-1.5 bg-ground rounded-full mt-2 overflow-hidden">
       <div className={`h-full ${tone} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+    </div>
+  )
+}
+
+/** A secondary track: the same information as DSA, in about a third of the height. */
+function MiniTrack({
+  eyebrow,
+  pct,
+  stats,
+  next,
+  children,
+}: {
+  eyebrow: string
+  pct: number
+  stats: { value: string; label: string; tone?: string }[]
+  next: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="card card-hover p-3 min-w-0">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="eyebrow">{eyebrow}</span>
+        <span className="font-mono text-[10px] text-muted shrink-0">{pct}% of track</span>
+      </div>
+
+      <div className="flex items-baseline gap-x-4 gap-y-1 mt-2 flex-wrap">
+        {stats.map((s) => (
+          <MiniStat key={s.label} {...s} />
+        ))}
+      </div>
+      <Bar pct={pct} />
+
+      {/* Truncated rather than wrapped: a two-line topic would cost the fold. */}
+      <p className="text-[11px] text-muted mt-1.5 truncate" title={next}>
+        {next}
+      </p>
+
+      <div className="flex flex-wrap gap-1.5 mt-2">{children}</div>
     </div>
   )
 }
@@ -100,38 +155,60 @@ export default function Home({
   const todayDay = schedule.find((d) => d.date === todayIso)
 
   const hour = new Date().getHours()
-  const greeting = hour < 5 ? 'Still up' : hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
+  const greeting =
+    hour < 5
+      ? 'Still up'
+      : hour < 12
+        ? 'Good morning'
+        : hour < 18
+          ? 'Good afternoon'
+          : 'Good evening'
 
   return (
+    /*
+     * Deliberately asymmetric. DSA takes two of three columns and keeps the
+     * large numbers; the two lighter tracks are condensed beside it rather than
+     * stacked underneath, so the whole overview fits one screen. Anything that
+     * would push a track below the fold is trimmed instead — a secondary track
+     * you have to scroll to is a secondary track you stop looking at.
+     */
     <div className="space-y-3">
-      <div className="card p-4">
-        <span className="eyebrow">overview</span>
-        <h2 className="font-display text-xl font-bold mt-1">
-          {greeting}
-          {todayDay ? (
-            <>
-              {' '}— day <span className="text-brand">{todayDay.day}</span> of {schedule.length}
-            </>
-          ) : null}
-        </h2>
-        <p className="text-sm text-muted mt-1">
-          {todayDay
-            ? `Today's topic is ${todayDay.topic}.`
-            : 'Outside the plan window — pick any day to work on.'}{' '}
-          DSA is the priority. System design and AI/ML are the lighter tracks running beside it —
-          both are sized to finish the same week the DSA plan does.
-        </p>
+      <div className="card px-4 py-2.5">
+        <div className="flex items-baseline justify-between gap-3 flex-wrap">
+          <h2 className="font-display text-lg font-bold min-w-0">
+            {greeting}
+            {todayDay ? (
+              <>
+                {' '}
+                — day <span className="text-brand">{todayDay.day}</span> of {schedule.length}
+              </>
+            ) : null}
+          </h2>
+          <p className="text-[11px] text-muted min-w-0">
+            DSA is the priority — the other two run beside it and finish the same week.
+          </p>
+        </div>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-3 items-start">
+      <div className="grid lg:grid-cols-3 gap-3 items-start">
         {/* ------------------------------- DSA ------------------------------- */}
-        <div className="card card-hover p-4">
-          <div className="flex items-baseline justify-between">
+        <div className="card card-hover p-4 lg:col-span-2 min-w-0">
+          <div className="flex items-baseline justify-between gap-2">
             <span className="eyebrow">dsa · 140-day plan</span>
-            <span className="font-mono text-[10px] text-muted">{dsaPct}% of problems</span>
+            <span className="font-mono text-[10px] text-muted shrink-0">{dsaPct}% of problems</span>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 mt-3">
+          <p className="text-sm mt-1 truncate">
+            {todayDay ? (
+              <>
+                Today: <span className="font-semibold">{todayDay.topic}</span>
+              </>
+            ) : (
+              <span className="text-muted">Outside the plan window — pick any day to work on.</span>
+            )}
+          </p>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
             <Stat label="solved" value={`${a.solved}`} sub={`of ${a.totalUnique}`} />
             <Stat label="streak" value={`${a.streak}`} sub={`best ${a.bestStreak}`} />
             <Stat
@@ -140,133 +217,92 @@ export default function Home({
               sub={`${a.solved}/${a.expected} due`}
               tone={pace >= 90 ? 'text-ac' : pace >= 60 ? 'text-warn' : 'text-miss'}
             />
+            <Stat label="hours" value={a.hours.toFixed(1)} sub={`${a.daysDone}/${a.elapsed} days`} />
           </div>
           <Bar pct={dsaPct} />
 
-          <div className="flex flex-wrap gap-3 mt-3 text-[11px] text-muted">
-            <span>{a.hours.toFixed(1)}h logged</span>
-            <span>·</span>
-            <span>
-              {a.daysDone}/{a.elapsed} days done
-            </span>
-            <span>·</span>
-            <span>{a.contests} contests</span>
-          </div>
-
-          <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-rule">
+          <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-rule">
             <button className="btn btn-primary text-xs" onClick={() => onGo('dsa', 'today')}>
               Today's problems →
             </button>
             <button className="btn text-xs" onClick={() => onGo('dsa', 'progress')}>
               Progress
             </button>
+            <button className="btn text-xs" onClick={() => onGo('dsa', 'analytics')}>
+              Analytics
+            </button>
+            <span className="font-mono text-[10px] text-muted ml-auto shrink-0">
+              {a.contests} contests
+            </span>
           </div>
         </div>
 
-        {/* ----------------------------- Design ------------------------------ */}
-        <div className="card card-hover p-4">
-          <div className="flex items-baseline justify-between">
-            <span className="eyebrow">system design</span>
-            <span className="font-mono text-[10px] text-muted">{sdPct}% of track</span>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3 mt-3">
-            <Stat label="studied" value={`${sd.studied}`} sub={`of ${SD_TOTAL_DAYS} days`} />
-            <Stat
-              label="practised"
-              value={`${sd.attempted}`}
-              sub={`of ${SD_PRACTICE_BANK.length} questions`}
-            />
-            <Stat
-              label="strong"
-              value={`${sd.strong}`}
-              sub="scored 80%+"
-              tone={sd.strong > 0 ? 'text-ac' : undefined}
-            />
-          </div>
-          <Bar pct={sdPct} />
-
-          <p className="text-[11px] text-muted mt-3">
-            {sd.next ? (
-              <>
-                Next up: <span className="text-ink">{sd.next.topic}</span>
-              </>
-            ) : (
-              'Track complete — keep practising questions.'
-            )}
-          </p>
-
-          <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-rule">
-            <button className="btn btn-primary text-xs" onClick={() => onGo('design', 'study')}>
-              Continue studying →
+        {/* ------------------ the two lighter tracks, stacked ------------------ */}
+        <div className="space-y-3 min-w-0">
+          <MiniTrack
+            eyebrow="system design"
+            pct={sdPct}
+            stats={[
+              { value: `${sd.studied}/${SD_TOTAL_DAYS}`, label: 'days' },
+              { value: `${sd.attempted}`, label: 'practised' },
+              {
+                value: `${sd.strong}`,
+                label: 'strong',
+                tone: sd.strong > 0 ? 'text-ac' : undefined,
+              },
+            ]}
+            next={sd.next ? `Next: ${sd.next.topic}` : 'Track complete — keep practising.'}
+          >
+            <button className="btn btn-compact btn-primary text-xs" onClick={() => onGo('design', 'study')}>
+              Study →
             </button>
-            <button className="btn text-xs" onClick={() => onGo('design', 'practice')}>
+            <button className="btn btn-compact text-xs" onClick={() => onGo('design', 'practice')}>
               Practise
             </button>
-            <button className="btn text-xs" onClick={() => onGo('design', 'interview')}>
-              Mock interview
+            <button className="btn btn-compact text-xs" onClick={() => onGo('design', 'interview')}>
+              Interview
             </button>
-          </div>
+          </MiniTrack>
+
+          <MiniTrack
+            eyebrow="ai / ml engineering"
+            pct={aiPct}
+            stats={[
+              { value: `${ai.studied}/${AIML_TOTAL_DAYS}`, label: 'days' },
+              { value: `${ai.attempted}`, label: 'practised' },
+              {
+                value: `${ai.strong}`,
+                label: 'strong',
+                tone: ai.strong > 0 ? 'text-ac' : undefined,
+              },
+              { value: `${ai.labs}`, label: 'labs' },
+            ]}
+            next={
+              ai.next
+                ? `Next: ${ai.next.topic} · ${ai.next.phase}`
+                : 'Track complete — keep building.'
+            }
+          >
+            <button className="btn btn-compact btn-primary text-xs" onClick={() => onGo('aiml', 'study')}>
+              Study →
+            </button>
+            <button className="btn btn-compact text-xs" onClick={() => onGo('aiml', 'practice')}>
+              Practise
+            </button>
+            <button className="btn btn-compact text-xs" onClick={() => onGo('aiml', 'labs')}>
+              Labs
+            </button>
+            <button className="btn btn-compact text-xs" onClick={() => onGo('aiml', 'interview')}>
+              Interview
+            </button>
+          </MiniTrack>
         </div>
       </div>
 
-      {/* ------------------------------ AI / ML ------------------------------ */}
-      <div className="card card-hover p-4">
-        <div className="flex items-baseline justify-between">
-          <span className="eyebrow">ai / ml engineering</span>
-          <span className="font-mono text-[10px] text-muted">{aiPct}% of track</span>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
-          <Stat label="studied" value={`${ai.studied}`} sub={`of ${AIML_TOTAL_DAYS} days`} />
-          <Stat
-            label="practised"
-            value={`${ai.attempted}`}
-            sub={`of ${AIML_PRACTICE_BANK.length} questions`}
-          />
-          <Stat
-            label="strong"
-            value={`${ai.strong}`}
-            sub="scored 80%+"
-            tone={ai.strong > 0 ? 'text-ac' : undefined}
-          />
-          <Stat label="labs" value={`${ai.labs}`} sub={`of ${AIML_LABS.length} built`} />
-        </div>
-        <Bar pct={aiPct} />
-
-        <p className="text-[11px] text-muted mt-3">
-          {ai.next ? (
-            <>
-              Next up: <span className="text-ink">{ai.next.topic}</span>{' '}
-              <span className="text-muted">· {ai.next.phase}</span>
-            </>
-          ) : (
-            'Track complete — keep practising and building.'
-          )}
-        </p>
-
-        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-rule">
-          <button className="btn btn-primary text-xs" onClick={() => onGo('aiml', 'study')}>
-            Continue studying →
-          </button>
-          <button className="btn text-xs" onClick={() => onGo('aiml', 'practice')}>
-            Practise
-          </button>
-          <button className="btn text-xs" onClick={() => onGo('aiml', 'labs')}>
-            Labs
-          </button>
-          <button className="btn text-xs" onClick={() => onGo('aiml', 'interview')}>
-            Mock interview
-          </button>
-        </div>
-      </div>
-
-      <div className="card p-3">
-        <p className="text-[11px] text-muted">
-          Everything is stored in this browser. Use <strong>Backup</strong> on the DSA → Analytics
-          tab before switching machines.
-        </p>
-      </div>
+      <p className="text-[11px] text-muted text-center">
+        Everything is stored in this browser. Use <strong>Backup</strong> on the DSA → Analytics tab
+        before switching machines.
+      </p>
     </div>
   )
 }

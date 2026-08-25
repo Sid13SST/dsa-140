@@ -122,6 +122,12 @@ body {
            focus-visible:ring-2 focus-visible:ring-brand/50
            disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0;
   }
+  /* Tighter horizontal padding, for dense rows of entry points like the
+     overview's secondary track cards, where four buttons must share a
+     narrow column without wrapping onto a second line. */
+  .btn-compact {
+    @apply px-2 py-1;
+  }
   .btn-primary {
     @apply bg-brand text-on-accent border-brand shadow-glow hover:bg-brand-deep hover:border-brand-deep;
   }
