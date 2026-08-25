@@ -4,7 +4,12 @@ Everything you have to do by hand, in order. Nothing in this file requires
 sending a secret to anyone; every key goes straight from the provider's
 dashboard into Vercel's environment variables.
 
-> **Payments are currently switched OFF** (`VITE_PAYMENTS_ENABLED=false`).
+> **Accounts are currently switched OFF** (`VITE_AUTH_ENABLED=false`). The
+> dashboard opens straight from the landing page with no sign-in, and progress
+> is stored in the browser. None of this section is needed to use the app — do
+> it when you want accounts, not before.
+
+> **Payments are also switched OFF** (`VITE_PAYMENTS_ENABLED=false`).
 > In this mode you need only steps 1 and 3, and no serverless functions at all:
 > signing in with Google is the whole requirement, and every read is authorised
 > by Row Level Security. Sections 2 and 5 apply when you switch the paywall on.

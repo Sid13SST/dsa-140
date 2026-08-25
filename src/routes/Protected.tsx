@@ -1,6 +1,6 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
-import { PAYMENTS_ENABLED } from '../lib/flags'
+import { AUTH_ENABLED, PAYMENTS_ENABLED } from '../lib/flags'
 
 /**
  * Route guard for the dashboard.
@@ -13,6 +13,10 @@ import { PAYMENTS_ENABLED } from '../lib/flags'
  */
 export default function Protected({ children }: { children: React.ReactNode }) {
   const { status, me, error, refresh } = useAuth()
+
+  // No accounts, no gate. Progress lives in localStorage exactly as it did
+  // before any of this existed.
+  if (!AUTH_ENABLED) return <>{children}</>
 
   if (status === 'unconfigured') {
     return (
