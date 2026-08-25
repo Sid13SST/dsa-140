@@ -72,13 +72,22 @@ interface GridProps {
   todayIso: string
   selected: string
   onSelect: (iso: string) => void
+  /** Lets a parent bound the card's height, e.g. to level a dashboard row. */
+  className?: string
 }
 
 /**
  * The signature view: all 140 days at once, 20 weeks across by weekday down.
  * Colour encodes outcome, so a gap in the run is visible instantly.
  */
-export function ConsistencyGrid({ schedule, progress, todayIso, selected, onSelect }: GridProps) {
+export function ConsistencyGrid({
+  schedule,
+  progress,
+  todayIso,
+  selected,
+  onSelect,
+  className = '',
+}: GridProps) {
   const weeks: Day[][] = []
   for (let i = 0; i < schedule.length; i += 7) weeks.push(schedule.slice(i, i + 7))
 
@@ -98,7 +107,7 @@ export function ConsistencyGrid({ schedule, progress, todayIso, selected, onSele
   }
 
   return (
-    <div className="card p-3">
+    <div className={`card p-3 flex flex-col ${className}`}>
       <div className="flex items-baseline justify-between mb-2">
         <span className="eyebrow">140-day run · 22 Aug 2026 → 8 Jan 2027</span>
         <span className="font-mono text-[10px] text-muted">
@@ -106,7 +115,7 @@ export function ConsistencyGrid({ schedule, progress, todayIso, selected, onSele
         </span>
       </div>
 
-      <div className="overflow-x-auto pb-1">
+      <div className="overflow-auto pb-1 flex-1 min-h-0">
         <div className="flex gap-[3px] min-w-max">
           {weeks.map((wk, wi) => (
             <div key={wi} className="flex flex-col gap-[3px]">

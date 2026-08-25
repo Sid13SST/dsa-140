@@ -92,7 +92,7 @@ export const emptyAttempt = (): SdAttempt => ({ hit: [], attempts: 0, lastAt: nu
 
 const AIML_KEY = 'dsa140:aiml:v1'
 const AIMLQ_KEY = 'dsa140:aimlpractice:v1'
-const AIMLLAB_KEY = 'dsa140:aimllabs:v1'
+const AIMLLAB_KEY = 'dsa140:aimllabs:v2'
 
 /** Day number → done. Isolated from DSA and system design for the same reason. */
 export function loadAiml(): SdProgress {
@@ -129,8 +129,19 @@ export function saveAimlQuiz(p: SdQuizProgress) {
   }
 }
 
-/** Lab id → done. Labs are weekend-sized, so they are tracked apart from days. */
-export type LabProgress = Record<string, boolean>
+/**
+ * Lab id → the indices of its done-criteria that are ticked.
+ *
+ * Per-criterion rather than a single done flag: a four-hour lab that only ever
+ * shows unticked-or-ticked gives you nothing for three of those hours, and a
+ * lab you cannot see progress on is a lab you abandon halfway.
+ */
+export type LabProgress = Record<string, number[]>
+
+/** A lab counts as complete only when every one of its criteria is met. */
+export function labDone(hit: number[] | undefined, total: number): boolean {
+  return total > 0 && (hit?.length ?? 0) >= total
+}
 
 export function loadAimlLabs(): LabProgress {
   try {

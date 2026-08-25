@@ -1090,16 +1090,34 @@ export const AIML_PHASES = ["Foundations","Classical ML","Deep Learning","LLMs",
  * they are not part of the daily thread — reading about serving does not teach
  * you serving. Do one on a weekend when DSA allows, or save the lot for January
  * when the DSA plan ends.
+ *
+ * Every lab names the ACTUAL PLACE the work happens — the dataset page, the
+ * library docs, a notebook you can open right now — plus the literal first
+ * command to run. A lab that is only a description of a lab is just another
+ * practice question, and you will not do it.
  */
+export type LabResourceKind = 'dataset' | 'tool' | 'guide' | 'notebook'
+
+export interface AimlLabResource {
+  label: string
+  url: string
+  source: string
+  kind: LabResourceKind
+}
+
 export interface AimlLab {
   id: string
   title: string
   /** Rough sitting, in hours, so you can tell a Saturday from an evening. */
   hours: number
   goal: string
-  /** What has to be true for this to count as done. */
+  /** What has to be true for this to count as done. Ticked individually. */
   done: string[]
   after: number
+  /** Open one of these to start. The first is the one to open first. */
+  resources: AimlLabResource[]
+  /** The literal first thing to do, so there is no blank-page problem. */
+  firstStep: string
 }
 
 export const AIML_LABS: AimlLab[] = [
@@ -1114,6 +1132,12 @@ export const AIML_LABS: AimlLab[] = [
       'One paragraph on what the heuristic gets wrong',
     ],
     after: 4,
+    resources: [
+      { label: 'Titanic — download train.csv', url: 'https://www.kaggle.com/competitions/titanic/data', source: 'Kaggle', kind: 'dataset' },
+      { label: 'Open a blank notebook', url: 'https://colab.research.google.com/', source: 'Google Colab', kind: 'notebook' },
+      { label: 'Intro to Machine Learning', url: 'https://www.kaggle.com/learn/intro-to-machine-learning', source: 'Kaggle Learn', kind: 'guide' },
+    ],
+    firstStep: 'Predict survived = (Sex is female). Score it. That is the number to beat.',
   },
   {
     id: 'tabular',
@@ -1126,6 +1150,13 @@ export const AIML_LABS: AimlLab[] = [
       'Feature importances you can explain out loud',
     ],
     after: 48,
+    resources: [
+      { label: 'House Prices — the dataset', url: 'https://www.kaggle.com/competitions/house-prices-advanced-regression-techniques', source: 'Kaggle', kind: 'dataset' },
+      { label: 'XGBoost — get started', url: 'https://xgboost.readthedocs.io/en/stable/get_started.html', source: 'XGBoost docs', kind: 'tool' },
+      { label: 'Cross-validation, properly', url: 'https://scikit-learn.org/stable/modules/cross_validation.html', source: 'scikit-learn', kind: 'guide' },
+      { label: 'Intermediate Machine Learning', url: 'https://www.kaggle.com/learn/intermediate-machine-learning', source: 'Kaggle Learn', kind: 'guide' },
+    ],
+    firstStep: 'pip install xgboost scikit-learn pandas',
   },
   {
     id: 'train-nn',
@@ -1138,6 +1169,13 @@ export const AIML_LABS: AimlLab[] = [
       'One bug you found and what it looked like',
     ],
     after: 62,
+    resources: [
+      { label: 'micrograd — the whole engine, 100 lines', url: 'https://github.com/karpathy/micrograd', source: 'karpathy', kind: 'tool' },
+      { label: 'Autograd — the PyTorch tutorial', url: 'https://pytorch.org/tutorials/beginner/blitz/autograd_tutorial.html', source: 'PyTorch', kind: 'guide' },
+      { label: 'torch.autograd — gradcheck', url: 'https://pytorch.org/docs/stable/autograd.html', source: 'PyTorch docs', kind: 'guide' },
+      { label: 'Notebook with a free GPU', url: 'https://colab.research.google.com/', source: 'Google Colab', kind: 'notebook' },
+    ],
+    firstStep: 'git clone https://github.com/karpathy/micrograd',
   },
   {
     id: 'serve',
@@ -1150,6 +1188,13 @@ export const AIML_LABS: AimlLab[] = [
       'Model loading kept out of the request path',
     ],
     after: 113,
+    resources: [
+      { label: 'FastAPI — build the endpoint', url: 'https://fastapi.tiangolo.com/', source: 'FastAPI', kind: 'tool' },
+      { label: 'Lifespan events — load the model once', url: 'https://fastapi.tiangolo.com/advanced/events/', source: 'FastAPI', kind: 'guide' },
+      { label: 'Locust — write the load test', url: 'https://docs.locust.io/en/stable/quickstart.html', source: 'Locust', kind: 'tool' },
+      { label: 'Uvicorn — the server to run it on', url: 'https://github.com/encode/uvicorn', source: 'encode', kind: 'tool' },
+    ],
+    firstStep: 'pip install fastapi uvicorn locust',
   },
   {
     id: 'batching',
@@ -1162,6 +1207,12 @@ export const AIML_LABS: AimlLab[] = [
       'A max-wait bound so a single request cannot starve',
     ],
     after: 113,
+    resources: [
+      { label: 'Continuous batching — read this first', url: 'https://www.anyscale.com/blog/continuous-batching-llm-inference', source: 'Anyscale', kind: 'guide' },
+      { label: 'Ray Serve — batching in a decorator', url: 'https://docs.ray.io/en/latest/serve/advanced-guides/dyn-req-batch.html', source: 'Ray', kind: 'tool' },
+      { label: 'vLLM — batching done for you', url: 'https://docs.vllm.ai/en/latest/', source: 'vLLM', kind: 'tool' },
+    ],
+    firstStep: 'pip install ray[serve] — then wrap the handler in @serve.batch',
   },
   {
     id: 'rag',
@@ -1174,6 +1225,14 @@ export const AIML_LABS: AimlLab[] = [
       'A query it gets wrong, and your diagnosis of which stage failed',
     ],
     after: 98,
+    resources: [
+      { label: 'sentence-transformers — make the embeddings', url: 'https://sbert.net/', source: 'SBERT', kind: 'tool' },
+      { label: 'Chroma — the easiest vector store to start on', url: 'https://docs.trychroma.com/', source: 'Chroma', kind: 'tool' },
+      { label: 'FAISS — for when Chroma gets slow', url: 'https://github.com/facebookresearch/faiss', source: 'Meta', kind: 'tool' },
+      { label: 'LlamaIndex — the pipeline assembled', url: 'https://docs.llamaindex.ai/en/stable/', source: 'LlamaIndex', kind: 'guide' },
+      { label: 'A corpus to index', url: 'https://huggingface.co/datasets', source: 'Hugging Face', kind: 'dataset' },
+    ],
+    firstStep: 'pip install sentence-transformers chromadb',
   },
   {
     id: 'evals',
@@ -1186,6 +1245,13 @@ export const AIML_LABS: AimlLab[] = [
       'A regression gate with a threshold you can defend',
     ],
     after: 110,
+    resources: [
+      { label: 'promptfoo — a gate in one config file', url: 'https://www.promptfoo.dev/docs/intro/', source: 'promptfoo', kind: 'tool' },
+      { label: 'Ragas — metrics built for RAG', url: 'https://docs.ragas.io/en/stable/', source: 'Ragas', kind: 'tool' },
+      { label: 'Phoenix — trace and evaluate locally', url: 'https://docs.arize.com/phoenix', source: 'Arize', kind: 'tool' },
+      { label: 'openai/evals — the registry pattern', url: 'https://github.com/openai/evals', source: 'OpenAI', kind: 'guide' },
+    ],
+    firstStep: 'npx promptfoo@latest init',
   },
   {
     id: 'monitor',
@@ -1198,6 +1264,13 @@ export const AIML_LABS: AimlLab[] = [
       'A false-positive case you tuned out, and how',
     ],
     after: 129,
+    resources: [
+      { label: 'Evidently — drift reports out of the box', url: 'https://docs.evidentlyai.com/', source: 'Evidently', kind: 'tool' },
+      { label: 'What drift actually means', url: 'https://www.evidentlyai.com/blog/machine-learning-monitoring-data-and-concept-drift', source: 'Evidently', kind: 'guide' },
+      { label: 'NannyML — estimate performance without labels', url: 'https://nannyml.readthedocs.io/en/stable/', source: 'NannyML', kind: 'tool' },
+      { label: 'ks_2samp — the statistic, by hand', url: 'https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.ks_2samp.html', source: 'SciPy', kind: 'guide' },
+    ],
+    firstStep: 'pip install evidently',
   },
 ]
 
