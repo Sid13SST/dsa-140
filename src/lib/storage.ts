@@ -159,3 +159,25 @@ export function saveAimlLabs(p: LabProgress) {
     // Non-fatal.
   }
 }
+
+/* --------------------------- the 200-day rail --------------------------- */
+
+const RAIL_KEY = 'dsa140:rail:v1'
+
+/** Rail day → done. The single secondary streak, isolated from DSA. */
+export function loadRail(): SdProgress {
+  try {
+    const raw = localStorage.getItem(RAIL_KEY)
+    return raw ? (JSON.parse(raw) as SdProgress) : {}
+  } catch {
+    return {}
+  }
+}
+
+export function saveRail(p: SdProgress) {
+  try {
+    localStorage.setItem(RAIL_KEY, JSON.stringify(p))
+  } catch {
+    // Non-fatal, same as the other tracks.
+  }
+}

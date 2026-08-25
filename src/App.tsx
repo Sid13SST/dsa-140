@@ -12,12 +12,14 @@ import {
   loadAiml,
   loadAimlQuiz,
   loadAimlLabs,
+  loadRail,
   saveLocal,
   saveSd,
   saveSdQuiz,
   saveAiml,
   saveAimlQuiz,
   saveAimlLabs,
+  saveRail,
 } from './lib/storage'
 import type { LabProgress, SdAttempt, SdProgress, SdQuizProgress } from './lib/storage'
 import { hasFinished, loadAllContests } from './lib/contests'
@@ -31,23 +33,18 @@ import Tabs from './components/Tabs'
 import Sidebar, { type Section } from './components/Sidebar'
 import Home from './components/Home'
 import { SD_TRACK, SD_TOTAL_DAYS } from './data/systemDesign'
-import { AIML_TRACK, AIML_TOTAL_DAYS } from './data/aiml'
+import { RAIL, RAIL_TOTAL_DAYS } from './data/track200'
 import ResourceLibrary, { DayResources } from './components/Resources'
-import SystemDesign from './components/SystemDesign'
-import SdPractice from './components/SdPractice'
-import AimlStudy from './components/AimlStudy'
-import AimlPractice from './components/AimlPractice'
-import AimlLabs from './components/AimlLabs'
-import { AIML_DOMAIN } from './lib/interviewPrompt'
-import { AIML_INTERVIEW } from './data/aimlPractice'
+import Rail from './components/Rail'
+import RailPractice from './components/RailPractice'
+import Library from './components/Library'
 // The Gemini SDK is sizeable and only needed in interview mode, so it loads
 // on demand rather than in the initial bundle.
-const AiInterview = lazy(() => import('./components/AiInterview'))
+const RailInterview = lazy(() => import('./components/RailInterview'))
 import { CalendarView, ContestPanel, TopicProgress } from './components/Panels'
 
 type DsaTab = 'today' | 'progress' | 'analytics' | 'learn'
-type DesignTab = 'study' | 'practice' | 'interview'
-type AimlTab = 'study' | 'practice' | 'labs' | 'interview'
+type RailTab = 'track' | 'practice' | 'interview'
 
 const iso = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -106,8 +103,17 @@ export default function App() {
     setSdQuiz((p) => ({ ...p, [id]: next }))
   }, [])
 
-  // Which half of the Design tab is showing: the reading queue or the questions.
-  const [designTab, setDesignTab] = useState<DesignTab>('study')
+  /* ------------------------- the 200-day rail ------------------------- */
+  const [railProgress, setRailProgress] = useState<SdProgress>(() => loadRail())
+  useEffect(() => {
+    saveRail(railProgress)
+  }, [railProgress])
+
+  const toggleRailDay = useCallback((day: number) => {
+    setRailProgress((p) => ({ ...p, [day]: !p[day] }))
+  }, [])
+
+  const [railTab, setRailTab] = useState<RailTab>('track')
 
   /* ------------------------------ ai/ml track ------------------------------ */
   const [aimlProgress, setAimlProgress] = useState<SdProgress>(() => loadAiml())
@@ -144,19 +150,16 @@ export default function App() {
     })
   }, [])
 
-  const aimlDoneCount = useMemo(
-    () => AIML_TRACK.filter((d) => aimlProgress[d.day]).length,
-    [aimlProgress],
+  const railDoneCount = useMemo(
+    () => RAIL.filter((d) => railProgress[d.day]).length,
+    [railProgress],
   )
-
-  const [aimlTab, setAimlTab] = useState<AimlTab>('study')
 
   /** Jump straight from the overview into a specific tab. */
   const goTo = useCallback((s: Section, t?: string) => {
     setSection(s)
     if (s === 'dsa' && t) setDsaTab(t as DsaTab)
-    if (s === 'design' && t) setDesignTab(t as DesignTab)
-    if (s === 'aiml' && t) setAimlTab(t as AimlTab)
+    if (s === 'rail' && t) setRailTab(t as RailTab)
   }, [])
 
   /*
@@ -335,8 +338,7 @@ export default function App() {
           onChange={setSection}
           hints={{
             dsa: dayNumber ? `d${dayNumber}` : undefined,
-            design: `${Math.round((sdDoneCount / SD_TOTAL_DAYS) * 100)}%`,
-            aiml: `${Math.round((aimlDoneCount / AIML_TOTAL_DAYS) * 100)}%`,
+            rail: `${Math.round((railDoneCount / RAIL_TOTAL_DAYS) * 100)}%`,
           }}
         />
 
@@ -350,7 +352,7 @@ export default function App() {
               sdQuiz={sdQuiz}
               aimlProgress={aimlProgress}
               aimlQuiz={aimlQuiz}
-              aimlLabs={aimlLabs}
+              railProgress={railProgress}
               contests={contests}
               contestError={contestError}
               contestsLoading={contestsLoading}
@@ -485,72 +487,48 @@ export default function App() {
             </>
           )}
 
-          {section === 'design' && (
+          {section === 'rail' && (
             <>
               <Tabs
                 tabs={[
-                  { id: 'study' as const, label: 'Study' },
+                  { id: 'track' as const, label: 'Track' },
                   { id: 'practice' as const, label: 'Practice' },
                   { id: 'interview' as const, label: 'AI Interview' },
                 ]}
-                active={designTab}
-                onChange={setDesignTab}
+                active={railTab}
+                onChange={setRailTab}
               />
 
-              {designTab === 'study' && (
-                <SystemDesign progress={sdProgress} onToggle={toggleSdDay} />
+              {railTab === 'track' && <Rail progress={railProgress} onToggle={toggleRailDay} />}
+              {railTab === 'practice' && (
+                <RailPractice
+                  sdQuiz={sdQuiz}
+                  onSdChange={setSdAttempt}
+                  aimlQuiz={aimlQuiz}
+                  onAimlChange={setAimlAttempt}
+                />
               )}
-              {designTab === 'practice' && (
-                <SdPractice progress={sdQuiz} onChange={setSdAttempt} />
-              )}
-              {designTab === 'interview' && (
+              {railTab === 'interview' && (
                 <Suspense
                   fallback={
                     <div className="card p-6 text-center text-sm text-muted">Loading…</div>
                   }
                 >
-                  <AiInterview />
+                  <RailInterview />
                 </Suspense>
               )}
             </>
           )}
 
-          {section === 'aiml' && (
-            <>
-              <Tabs
-                tabs={[
-                  { id: 'study' as const, label: 'Study' },
-                  { id: 'practice' as const, label: 'Practice' },
-                  { id: 'labs' as const, label: 'Labs' },
-                  { id: 'interview' as const, label: 'AI Interview' },
-                ]}
-                active={aimlTab}
-                onChange={setAimlTab}
-              />
-
-              {aimlTab === 'study' && (
-                <AimlStudy progress={aimlProgress} onToggle={toggleAimlDay} />
-              )}
-              {aimlTab === 'practice' && (
-                <AimlPractice progress={aimlQuiz} onChange={setAimlAttempt} />
-              )}
-              {aimlTab === 'labs' && (
-                <AimlLabs labs={aimlLabs} onToggle={toggleAimlLab} study={aimlProgress} />
-              )}
-              {aimlTab === 'interview' && (
-                <Suspense
-                  fallback={
-                    <div className="card p-6 text-center text-sm text-muted">Loading…</div>
-                  }
-                >
-                  <AiInterview
-                    bank={AIML_INTERVIEW}
-                    domain={AIML_DOMAIN}
-                    eyebrow="ai/ml interviewer"
-                  />
-                </Suspense>
-              )}
-            </>
+          {section === 'library' && (
+            <Library
+              sdProgress={sdProgress}
+              onToggleSd={toggleSdDay}
+              aimlProgress={aimlProgress}
+              onToggleAiml={toggleAimlDay}
+              labs={aimlLabs}
+              onToggleLab={toggleAimlLab}
+            />
           )}
 
           <footer className="text-center text-[11px] text-muted py-3">

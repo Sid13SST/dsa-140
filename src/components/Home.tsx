@@ -4,10 +4,17 @@ import { computeAnalytics } from '../lib/analytics'
 import { SD_TRACK, SD_TOTAL_DAYS } from '../data/systemDesign'
 import { SD_PRACTICE_BANK } from '../data/sdPracticeBank'
 import { allRubric } from '../data/sdPractice'
-import { AIML_LABS, AIML_TOTAL_DAYS, AIML_TRACK } from '../data/aiml'
+import { AIML_TRACK } from '../data/aiml'
+import {
+  RAIL,
+  RAIL_DOMAIN_COUNTS,
+  RAIL_DOMAIN_META,
+  RAIL_TOTAL_DAYS,
+  type RailDomain,
+} from '../data/track200'
 import { AIML_PRACTICE_BANK } from '../data/aimlPracticeBank'
 import { aimlRubric } from '../data/aimlPractice'
-import { labDone, type LabProgress, type SdProgress, type SdQuizProgress } from '../lib/storage'
+import type { SdProgress, SdQuizProgress } from '../lib/storage'
 import type { Section } from './Sidebar'
 import type { Contest } from '../types'
 import { ConsistencyGrid } from './Overview'
@@ -21,7 +28,7 @@ interface Props {
   sdQuiz: SdQuizProgress
   aimlProgress: SdProgress
   aimlQuiz: SdQuizProgress
-  aimlLabs: LabProgress
+  railProgress: SdProgress
   contests: Contest[]
   contestError: string | null
   contestsLoading: boolean
@@ -87,12 +94,15 @@ function MiniTrack({
   stats,
   next,
   children,
+  footer,
 }: {
   eyebrow: string
   pct: number
   stats: { value: string; label: string; tone?: string }[]
   next: string
   children: React.ReactNode
+  /** Extra content inside the same card — a second card costs a gap plus padding. */
+  footer?: React.ReactNode
 }) {
   return (
     <div className="card card-hover p-3 min-w-0">
@@ -114,6 +124,7 @@ function MiniTrack({
       </p>
 
       <div className="flex flex-wrap gap-1.5 mt-2">{children}</div>
+      {footer}
     </div>
   )
 }
@@ -126,7 +137,7 @@ export default function Home({
   sdQuiz,
   aimlProgress,
   aimlQuiz,
-  aimlLabs,
+  railProgress,
   contests,
   contestError,
   contestsLoading,
@@ -141,34 +152,40 @@ export default function Home({
     [schedule, progress, todayIso],
   )
 
-  const sd = useMemo(() => {
-    const studied = SD_TRACK.filter((d) => sdProgress[d.day]).length
-    const attempted = SD_PRACTICE_BANK.filter((q) => (sdQuiz[q.id]?.attempts ?? 0) > 0).length
-    const strong = SD_PRACTICE_BANK.filter((q) => {
-      const at = sdQuiz[q.id]
-      if (!at || at.attempts === 0) return false
-      return at.hit.length / allRubric(q).length >= 0.8
-    }).length
-    const next = SD_TRACK.find((d) => !sdProgress[d.day]) ?? null
-    return { studied, attempted, strong, next }
-  }, [sdProgress, sdQuiz])
+  /**
+   * One secondary number, not two. Practice and interview banks still belong to
+   * the design and AI/ML domains, so "practised" sums both — the rail is the
+   * single obligation, but the question banks behind it did not merge.
+   */
+  const rail = useMemo(() => {
+    const done = RAIL.filter((d) => railProgress[d.day]).length
+    const practised =
+      SD_PRACTICE_BANK.filter((q) => (sdQuiz[q.id]?.attempts ?? 0) > 0).length +
+      AIML_PRACTICE_BANK.filter((q) => (aimlQuiz[q.id]?.attempts ?? 0) > 0).length
+    const strong =
+      SD_PRACTICE_BANK.filter((q) => {
+        const at = sdQuiz[q.id]
+        return at && at.attempts > 0 && at.hit.length / allRubric(q).length >= 0.8
+      }).length +
+      AIML_PRACTICE_BANK.filter((q) => {
+        const at = aimlQuiz[q.id]
+        return at && at.attempts > 0 && at.hit.length / aimlRubric(q).length >= 0.8
+      }).length
+    const next = RAIL.find((d) => !railProgress[d.day]) ?? null
 
-  const ai = useMemo(() => {
-    const studied = AIML_TRACK.filter((d) => aimlProgress[d.day]).length
-    const attempted = AIML_PRACTICE_BANK.filter((q) => (aimlQuiz[q.id]?.attempts ?? 0) > 0).length
-    const strong = AIML_PRACTICE_BANK.filter((q) => {
-      const at = aimlQuiz[q.id]
-      if (!at || at.attempts === 0) return false
-      return at.hit.length / aimlRubric(q).length >= 0.8
-    }).length
-    const labs = AIML_LABS.filter((l) => labDone(aimlLabs[l.id], l.done.length)).length
-    const next = AIML_TRACK.find((d) => !aimlProgress[d.day]) ?? null
-    return { studied, attempted, strong, labs, next }
-  }, [aimlProgress, aimlQuiz, aimlLabs])
+    const order: RailDomain[] = ['backend', 'db', 'linux', 'devops', 'design', 'aiml']
+    const byDomain = order.map((key) => ({
+      key,
+      label: RAIL_DOMAIN_META[key].label,
+      total: RAIL_DOMAIN_COUNTS[key] ?? 0,
+      done: RAIL.filter((d) => d.domain === key && railProgress[d.day]).length,
+    }))
+
+    return { done, practised, strong, next, byDomain }
+  }, [railProgress, sdQuiz, aimlQuiz])
 
   const dsaPct = a.totalUnique ? Math.round((a.solved / a.totalUnique) * 100) : 0
-  const sdPct = Math.round((sd.studied / SD_TOTAL_DAYS) * 100)
-  const aiPct = Math.round((ai.studied / AIML_TOTAL_DAYS) * 100)
+  const railPct = Math.round((rail.done / RAIL_TOTAL_DAYS) * 100)
   const pace = a.expected === 0 ? 0 : Math.round((a.solved / a.expected) * 100)
   const todayDay = schedule.find((d) => d.date === todayIso)
 
@@ -256,65 +273,59 @@ export default function Home({
           </div>
         </div>
 
-        {/* ------------------ the two lighter tracks, stacked ------------------ */}
-        <div className="space-y-3 min-w-0">
+        {/* --------------- the one secondary thread, not two --------------- */}
+        <div className="min-w-0">
           <MiniTrack
-            eyebrow="system design"
-            pct={sdPct}
+            eyebrow="the 200 · beside dsa"
+            pct={railPct}
+            footer={
+              /* Six subjects interleaved, so one percentage hides the split. */
+              <ul className="mt-2 pt-2 border-t border-rule space-y-0.5">
+                {rail.byDomain.map((d) => (
+                  <li key={d.key} className="flex items-center gap-2 min-w-0">
+                    <span className="text-[10px] flex-1 min-w-0 truncate">{d.label}</span>
+                    <span className="font-mono text-[9px] text-muted shrink-0 tabular-nums">
+                      {d.done}/{d.total}
+                    </span>
+                    <span className="w-12 h-1 bg-ground rounded-full overflow-hidden shrink-0">
+                      <span
+                        className="block h-full bg-brand rounded-full"
+                        style={{ width: `${d.total ? (d.done / d.total) * 100 : 0}%` }}
+                      />
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            }
             stats={[
-              { value: `${sd.studied}/${SD_TOTAL_DAYS}`, label: 'days' },
-              { value: `${sd.attempted}`, label: 'practised' },
+              { value: `${rail.done}/${RAIL_TOTAL_DAYS}`, label: 'days' },
+              { value: `${rail.practised}`, label: 'practised' },
               {
-                value: `${sd.strong}`,
+                value: `${rail.strong}`,
                 label: 'strong',
-                tone: sd.strong > 0 ? 'text-ac' : undefined,
+                tone: rail.strong > 0 ? 'text-ac' : undefined,
               },
             ]}
-            next={sd.next ? `Next: ${sd.next.topic}` : 'Track complete — keep practising.'}
+            next={
+              rail.next
+                ? `Next: ${rail.next.topic} · ${RAIL_DOMAIN_META[rail.next.domain].label}`
+                : 'Rail complete — keep practising and interviewing.'
+            }
           >
-            <button className="btn btn-compact btn-primary text-xs" onClick={() => onGo('design', 'study')}>
-              Study →
+            <button className="btn btn-compact btn-primary text-xs" onClick={() => onGo('rail', 'track')}>
+              Today's 20 min →
             </button>
-            <button className="btn btn-compact text-xs" onClick={() => onGo('design', 'practice')}>
+            <button className="btn btn-compact text-xs" onClick={() => onGo('rail', 'practice')}>
               Practise
             </button>
-            <button className="btn btn-compact text-xs" onClick={() => onGo('design', 'interview')}>
+            <button className="btn btn-compact text-xs" onClick={() => onGo('rail', 'interview')}>
               Interview
+            </button>
+            <button className="btn btn-compact text-xs" onClick={() => onGo('library')}>
+              Library
             </button>
           </MiniTrack>
 
-          <MiniTrack
-            eyebrow="ai / ml engineering"
-            pct={aiPct}
-            stats={[
-              { value: `${ai.studied}/${AIML_TOTAL_DAYS}`, label: 'days' },
-              { value: `${ai.attempted}`, label: 'practised' },
-              {
-                value: `${ai.strong}`,
-                label: 'strong',
-                tone: ai.strong > 0 ? 'text-ac' : undefined,
-              },
-              { value: `${ai.labs}`, label: 'labs' },
-            ]}
-            next={
-              ai.next
-                ? `Next: ${ai.next.topic} · ${ai.next.phase}`
-                : 'Track complete — keep building.'
-            }
-          >
-            <button className="btn btn-compact btn-primary text-xs" onClick={() => onGo('aiml', 'study')}>
-              Study →
-            </button>
-            <button className="btn btn-compact text-xs" onClick={() => onGo('aiml', 'practice')}>
-              Practise
-            </button>
-            <button className="btn btn-compact text-xs" onClick={() => onGo('aiml', 'labs')}>
-              Labs
-            </button>
-            <button className="btn btn-compact text-xs" onClick={() => onGo('aiml', 'interview')}>
-              Interview
-            </button>
-          </MiniTrack>
         </div>
       </div>
 

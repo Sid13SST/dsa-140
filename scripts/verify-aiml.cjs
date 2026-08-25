@@ -1,7 +1,7 @@
 /**
- * Verifies everything src/data/aiml.ts points at is real.
+ * Verifies everything a generated data file points at is real.
  *
- *   node scripts/verify-aiml.cjs
+ *   node scripts/verify-aiml.cjs [file ...]      (defaults to src/data/aiml.ts)
  *
  * Videos go through YouTube's oEmbed endpoint, which fails for dead or private
  * ids and returns the real uploader — so a live id that belongs to the wrong
@@ -13,7 +13,9 @@
 const fs = require('fs')
 const https = require('https')
 
-const src = fs.readFileSync('src/data/aiml.ts', 'utf8')
+const files = process.argv.slice(2)
+if (files.length === 0) files.push('src/data/aiml.ts')
+const src = files.map((f) => fs.readFileSync(f, 'utf8')).join(String.fromCharCode(10))
 
 const videos = [...src.matchAll(/video: \{ id: "([\w-]{11})", title: "((?:[^"\\]|\\.)*)", seconds: (\d+), channel: "([^"]+)" \}/g)].map(
   (m) => ({ id: m[1], title: JSON.parse(`"${m[2]}"`), seconds: +m[3], channel: m[4] }),
