@@ -24,11 +24,30 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      - name: Warn if Supabase is not configured
+        # A build without these deploys a site that cannot sign anyone in. It
+        # still works — the app says so plainly rather than white-screening —
+        # but the cause should be visible here and not only in the browser.
+        if: ${{ !(vars.VITE_SUPABASE_URL || secrets.VITE_SUPABASE_URL) }}
+        run: |
+          echo "::warning::VITE_SUPABASE_URL is not set. Add it under Settings -> Secrets and variables -> Actions -> Variables. Sign-in will be disabled on this deploy."
+
       - name: Build
         # Pages serves this repo at /dsa-140/, not at the root.
+        #
+        # The Supabase values are read from repository variables, falling back
+        # to secrets so either works. Both are PUBLIC by design — they are
+        # compiled into the bundle and readable by anyone who opens devtools.
+        # Row Level Security is what protects the data, not their secrecy, so
+        # `vars` is the more honest home for them.
         run: npm run build
         env:
           VITE_BASE_PATH: /dsa-140/
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || secrets.VITE_SUPABASE_ANON_KEY }}
+          # Payments stay off on Pages regardless: there are no serverless
+          # functions there, so the Razorpay flow could not complete anyway.
+          VITE_PAYMENTS_ENABLED: 'false'
       # Pages has no SPA rewrite, so a hard refresh on /plans would 404. Serving
       # the same document as the not-found page hands the route to the router.
       - name: SPA fallback

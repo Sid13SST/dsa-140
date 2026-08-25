@@ -29,9 +29,17 @@ export default function SignIn() {
         <h1 className="font-display text-xl font-bold">Sign-in is not configured</h1>
         <p className="text-sm text-muted mt-2 leading-relaxed">
           This build has no <code className="font-mono text-[12px]">VITE_SUPABASE_URL</code> or{' '}
-          <code className="font-mono text-[12px]">VITE_SUPABASE_ANON_KEY</code>. Add them in your
-          hosting environment and redeploy. Nothing is broken — the app simply will not pretend
-          to sign you in when it cannot.
+          <code className="font-mono text-[12px]">VITE_SUPABASE_ANON_KEY</code>. Nothing is broken
+          — the app will not pretend to sign you in when it cannot.
+        </p>
+        {/* Naming the exact place saves a round trip: these are build-time
+            values, so a running deploy cannot be fixed without rebuilding. */}
+        <p className="text-[12px] text-muted mt-3 leading-relaxed">
+          They are baked in at <strong>build</strong> time, so setting them means a redeploy.
+          On GitHub Pages: Settings → Secrets and variables → Actions → Variables. On Vercel:
+          Project → Settings → Environment Variables. Locally: copy{' '}
+          <code className="font-mono text-[12px]">.env.example</code> to{' '}
+          <code className="font-mono text-[12px]">.env.local</code> and restart the dev server.
         </p>
       </Shell>
     )
