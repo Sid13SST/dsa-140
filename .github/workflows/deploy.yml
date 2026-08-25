@@ -45,8 +45,11 @@ jobs:
           VITE_BASE_PATH: /dsa-140/
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || secrets.VITE_SUPABASE_ANON_KEY }}
-          # Payments stay off on Pages regardless: there are no serverless
-          # functions there, so the Razorpay flow could not complete anyway.
+          # Accounts and payments are both off for now: the dashboard opens
+          # straight from the landing page and progress lives in the browser.
+          # Payments could not work on Pages anyway — there are no serverless
+          # functions there for the Razorpay flow to reach.
+          VITE_AUTH_ENABLED: 'false'
           VITE_PAYMENTS_ENABLED: 'false'
       # Pages has no SPA rewrite, so a hard refresh on /plans would 404. Serving
       # the same document as the not-found page hands the route to the router.

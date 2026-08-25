@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
-import { PAYMENTS_ENABLED } from '../lib/flags'
+import { AUTH_ENABLED, PAYMENTS_ENABLED } from '../lib/flags'
 
 /**
  * Sign in and sign up are the same screen, because with Google they are the
@@ -18,6 +18,9 @@ export default function SignIn() {
   useEffect(() => {
     document.title = signup ? 'Sign up — Backend 200' : 'Sign in — Backend 200'
   }, [signup])
+
+  // Accounts are switched off, so there is no sign-in to offer.
+  if (!AUTH_ENABLED) return <Navigate to="/app" replace />
 
   if (status === 'signed-in') {
     return <Navigate to={!PAYMENTS_ENABLED || me?.hasPaid ? '/app' : '/plans'} replace />

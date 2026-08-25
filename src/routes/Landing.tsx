@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { PRICE_RUPEES } from '../lib/pricing'
-import { PAYMENTS_ENABLED } from '../lib/flags'
+import { AUTH_ENABLED, PAYMENTS_ENABLED } from '../lib/flags'
 
 /**
  * The public page. Everything here is marketing copy and summary counts —
@@ -68,11 +68,23 @@ export default function Landing() {
    * step to send anyone to, and advertising a price you cannot charge would be
    * a lie on the first screen.
    */
-  const ctaTo = signedIn ? (PAYMENTS_ENABLED ? '/plans' : '/app') : '/signin?mode=signup'
-  const ctaLabel = PAYMENTS_ENABLED ? `Get access — ₹${PRICE_RUPEES} once →` : 'Create a free account →'
-  const ctaNote = PAYMENTS_ENABLED
-    ? 'One payment. No subscription, no renewal, no card stored.'
-    : 'Free while in development. One click with Google.'
+  const ctaTo = !AUTH_ENABLED
+    ? '/app'
+    : signedIn
+      ? PAYMENTS_ENABLED
+        ? '/plans'
+        : '/app'
+      : '/signin?mode=signup'
+  const ctaLabel = !AUTH_ENABLED
+    ? 'Open the dashboard →'
+    : PAYMENTS_ENABLED
+      ? `Get access — ₹${PRICE_RUPEES} once →`
+      : 'Create a free account →'
+  const ctaNote = !AUTH_ENABLED
+    ? 'No account needed. Your progress is saved in this browser.'
+    : PAYMENTS_ENABLED
+      ? 'One payment. No subscription, no renewal, no card stored.'
+      : 'Free while in development. One click with Google.'
 
   return (
     <div className="min-h-full">
@@ -82,7 +94,11 @@ export default function Landing() {
             Backend<span className="text-brand">200</span>
           </span>
           <div className="flex items-center gap-2">
-            {signedIn ? (
+            {!AUTH_ENABLED ? (
+              <Link className="btn btn-primary text-xs" to="/app">
+                Open dashboard
+              </Link>
+            ) : signedIn ? (
               <Link className="btn btn-primary text-xs" to={ctaTo}>
                 {me?.hasPaid ? 'Open dashboard' : 'Continue'}
               </Link>
@@ -208,9 +224,11 @@ export default function Landing() {
         <div className="max-w-5xl mx-auto px-4 py-4 text-[11px] text-muted flex flex-wrap gap-x-4 gap-y-1 justify-between">
           <span>Backend 200</span>
           <span>
-            {PAYMENTS_ENABLED
-              ? 'Payments processed by Razorpay. We never see or store your card details.'
-              : 'Sign-in by Google. We receive your name, email and picture — nothing else.'}
+            {!AUTH_ENABLED
+              ? 'No accounts yet — progress is stored in your browser. Back it up from DSA → Analytics.'
+              : PAYMENTS_ENABLED
+                ? 'Payments processed by Razorpay. We never see or store your card details.'
+                : 'Sign-in by Google. We receive your name, email and picture — nothing else.'}
           </span>
         </div>
       </footer>

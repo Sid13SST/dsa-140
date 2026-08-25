@@ -11,3 +11,16 @@
  * inlines env vars as strings — the literal "false" is truthy.
  */
 export const PAYMENTS_ENABLED = import.meta.env.VITE_PAYMENTS_ENABLED === 'true'
+
+/**
+ * Whether the dashboard requires an account at all.
+ *
+ * Off by default, so the app works the way it did before any of this existed:
+ * open /app and start, with progress in localStorage. Accounts are only worth
+ * their setup cost once there is something to sync or someone to charge, and
+ * until then a sign-in wall is just a thing standing between you and the work.
+ *
+ * Everything auth-related stays wired and tested behind this — set it to true
+ * once Supabase has its schema and Google provider in place.
+ */
+export const AUTH_ENABLED = import.meta.env.VITE_AUTH_ENABLED === 'true'
