@@ -22,7 +22,9 @@ const Loading = () => (
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <BrowserRouter>
+    {/* BASE_URL is whatever vite.config resolved, so the router and the
+        asset paths can never disagree. */}
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <AuthProvider>
         <Suspense fallback={<Loading />}>
           <Routes>

@@ -25,7 +25,14 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Build
+        # Pages serves this repo at /dsa-140/, not at the root.
         run: npm run build
+        env:
+          VITE_BASE_PATH: /dsa-140/
+      # Pages has no SPA rewrite, so a hard refresh on /plans would 404. Serving
+      # the same document as the not-found page hands the route to the router.
+      - name: SPA fallback
+        run: cp dist/index.html dist/404.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
