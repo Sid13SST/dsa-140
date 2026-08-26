@@ -13,6 +13,7 @@ import {
   loadAimlQuiz,
   loadAimlLabs,
   loadRail,
+  loadFde,
   saveLocal,
   saveSd,
   saveSdQuiz,
@@ -20,6 +21,7 @@ import {
   saveAimlQuiz,
   saveAimlLabs,
   saveRail,
+  saveFde,
 } from './lib/storage'
 import type { LabProgress, SdAttempt, SdProgress, SdQuizProgress } from './lib/storage'
 import { hasFinished, loadAllContests } from './lib/contests'
@@ -34,8 +36,10 @@ import Sidebar, { type Section } from './components/Sidebar'
 import Home from './components/Home'
 import { SD_TRACK, SD_TOTAL_DAYS } from './data/systemDesign'
 import { RAIL, RAIL_TOTAL_DAYS } from './data/track200'
+import { FDE_TRACK, FDE_TOTAL_DAYS } from './data/fde'
 import ResourceLibrary, { DayResources } from './components/Resources'
 import Rail from './components/Rail'
+import Fde from './components/Fde'
 import RailPractice from './components/RailPractice'
 import Library from './components/Library'
 // The Gemini SDK is sizeable and only needed in interview mode, so it loads
@@ -114,6 +118,21 @@ export default function App() {
   }, [])
 
   const [railTab, setRailTab] = useState<RailTab>('track')
+
+  /* ------------------------------ the FDE track ------------------------------ */
+  const [fdeProgress, setFdeProgress] = useState<SdProgress>(() => loadFde())
+  useEffect(() => {
+    saveFde(fdeProgress)
+  }, [fdeProgress])
+
+  const toggleFdeDay = useCallback((day: number) => {
+    setFdeProgress((p) => ({ ...p, [day]: !p[day] }))
+  }, [])
+
+  const fdeDoneCount = useMemo(
+    () => FDE_TRACK.filter((d) => fdeProgress[d.day]).length,
+    [fdeProgress],
+  )
 
   /* ------------------------------ ai/ml track ------------------------------ */
   const [aimlProgress, setAimlProgress] = useState<SdProgress>(() => loadAiml())
@@ -339,6 +358,7 @@ export default function App() {
           hints={{
             dsa: dayNumber ? `d${dayNumber}` : undefined,
             rail: `${Math.round((railDoneCount / RAIL_TOTAL_DAYS) * 100)}%`,
+            fde: `${Math.round((fdeDoneCount / FDE_TOTAL_DAYS) * 100)}%`,
           }}
         />
 
@@ -353,6 +373,7 @@ export default function App() {
               aimlProgress={aimlProgress}
               aimlQuiz={aimlQuiz}
               railProgress={railProgress}
+              fdeProgress={fdeProgress}
               contests={contests}
               contestError={contestError}
               contestsLoading={contestsLoading}
@@ -519,6 +540,8 @@ export default function App() {
               )}
             </>
           )}
+
+          {section === 'fde' && <Fde progress={fdeProgress} onToggle={toggleFdeDay} />}
 
           {section === 'library' && (
             <Library

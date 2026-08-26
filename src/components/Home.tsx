@@ -12,6 +12,7 @@ import {
   RAIL_TOTAL_DAYS,
   type RailDomain,
 } from '../data/track200'
+import { FDE_PHASE_COUNTS, FDE_TOTAL_DAYS, FDE_TRACK } from '../data/fde'
 import { AIML_PRACTICE_BANK } from '../data/aimlPracticeBank'
 import { aimlRubric } from '../data/aimlPractice'
 import type { SdProgress, SdQuizProgress } from '../lib/storage'
@@ -29,6 +30,7 @@ interface Props {
   aimlProgress: SdProgress
   aimlQuiz: SdQuizProgress
   railProgress: SdProgress
+  fdeProgress: SdProgress
   contests: Contest[]
   contestError: string | null
   contestsLoading: boolean
@@ -138,6 +140,7 @@ export default function Home({
   aimlProgress,
   aimlQuiz,
   railProgress,
+  fdeProgress,
   contests,
   contestError,
   contestsLoading,
@@ -184,8 +187,20 @@ export default function Home({
     return { done, practised, strong, next, byDomain }
   }, [railProgress, sdQuiz, aimlQuiz])
 
+  const fde = useMemo(() => {
+    const done = FDE_TRACK.filter((d) => fdeProgress[d.day]).length
+    const next = FDE_TRACK.find((d) => !fdeProgress[d.day]) ?? null
+    const phase = next?.phase ?? null
+    const phaseTotal = phase ? (FDE_PHASE_COUNTS[phase] ?? 0) : 0
+    const phaseDone = phase
+      ? FDE_TRACK.filter((d) => d.phase === phase && fdeProgress[d.day]).length
+      : 0
+    return { done, next, phase, phaseDone, phaseTotal }
+  }, [fdeProgress])
+
   const dsaPct = a.totalUnique ? Math.round((a.solved / a.totalUnique) * 100) : 0
   const railPct = Math.round((rail.done / RAIL_TOTAL_DAYS) * 100)
+  const fdePct = Math.round((fde.done / FDE_TOTAL_DAYS) * 100)
   const pace = a.expected === 0 ? 0 : Math.round((a.solved / a.expected) * 100)
   const todayDay = schedule.find((d) => d.date === todayIso)
 
@@ -280,7 +295,7 @@ export default function Home({
             pct={railPct}
             footer={
               /* Six subjects interleaved, so one percentage hides the split. */
-              <ul className="mt-2 pt-2 border-t border-rule space-y-0.5">
+              <ul className="mt-2 pt-2 border-t border-rule grid grid-cols-2 gap-x-3 gap-y-0.5">
                 {rail.byDomain.map((d) => (
                   <li key={d.key} className="flex items-center gap-2 min-w-0">
                     <span className="text-[10px] flex-1 min-w-0 truncate">{d.label}</span>
@@ -326,6 +341,7 @@ export default function Home({
             </button>
           </MiniTrack>
 
+
         </div>
       </div>
 
@@ -334,7 +350,7 @@ export default function Home({
         * grid is the only view where a broken streak is visible at a glance,
         * and the contest list is the one thing on this page with a deadline.
         */}
-      <div className="grid lg:grid-cols-3 gap-3 lg:h-[clamp(8rem,24vh,14rem)] lg:auto-rows-fr">
+      <div className="grid lg:grid-cols-4 gap-3 lg:h-[clamp(8rem,24vh,14rem)] lg:auto-rows-fr">
         <ConsistencyGrid
           className="lg:col-span-2 min-w-0 lg:min-h-0"
           schedule={schedule}
@@ -355,6 +371,31 @@ export default function Home({
           now={now}
           updatedAt={contestsUpdatedAt}
         />
+        {/* FDE sits here rather than under the rail: stacked, the right-hand
+            column reached 436px against DSA's 221 and pushed the page past the
+            fold. Across the bottom it costs no height at all. */}
+        <div className="min-w-0 lg:min-h-0 overflow-y-auto">
+          <MiniTrack
+            eyebrow="fde · in demand"
+            pct={fdePct}
+            stats={[
+              { value: `${fde.done}/${FDE_TOTAL_DAYS}`, label: 'days' },
+              {
+                value: fde.phaseTotal ? `${fde.phaseDone}/${fde.phaseTotal}` : '—',
+                label: 'this phase',
+              },
+            ]}
+            next={
+              fde.next
+                ? `Next: ${fde.next.topic} · ${fde.next.phase}`
+                : 'Track complete — rehearse the story.'
+            }
+          >
+            <button className="btn btn-compact btn-primary text-xs" onClick={() => onGo('fde')}>
+              Continue →
+            </button>
+          </MiniTrack>
+        </div>
       </div>
 
     </div>

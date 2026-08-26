@@ -1,4 +1,3 @@
-import { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { PRICE_RUPEES } from '../lib/pricing'
@@ -52,14 +51,39 @@ const STEPS = [
   },
 ]
 
-/** Domain colour for the tile wall, in the same order the rail interleaves them. */
-const TILE_TONES = [
-  'rgb(var(--brand) / 0.85)',
-  'rgb(var(--ac) / 0.8)',
-  'rgb(var(--warn) / 0.75)',
-  'rgb(var(--miss) / 0.7)',
-  'rgb(var(--brand-deep) / 0.8)',
-  'rgb(var(--muted) / 0.5)',
+/**
+ * A real day from the rail, quoted verbatim.
+ *
+ * Hardcoded rather than imported, for the same reason the counts are: importing
+ * the track would pull the whole curriculum into the public bundle. These three
+ * are days 12, 88 and 47 of src/data/track200.ts — if you regenerate the rail,
+ * re-check them.
+ */
+const SAMPLE_DAYS = [
+  {
+    day: 12,
+    domain: 'Databases',
+    tone: 'text-ac border-ac/40 bg-ac/10',
+    topic: 'Choosing a database',
+    prompt: 'Give the one question that eliminates half the options immediately.',
+    cost: '6:12 video',
+  },
+  {
+    day: 47,
+    domain: 'System design',
+    tone: 'text-brand-deep border-brand/40 bg-brand/10',
+    topic: 'Consistent hashing',
+    prompt: 'Why does adding one server reshuffle almost every key without it?',
+    cost: '8:04 video',
+  },
+  {
+    day: 88,
+    domain: 'DevOps',
+    tone: 'text-miss border-miss/40 bg-miss/10',
+    topic: 'Dev/prod parity',
+    prompt: 'Name the three gaps this principle is trying to close.',
+    cost: '~10m read',
+  },
 ]
 
 function Stat({
@@ -89,54 +113,40 @@ function Stat({
 }
 
 /**
- * 200 tiles on a tilted plane, coloured by domain and staggered in.
+ * Three consecutive-ish days, shown the way the app shows them.
  *
- * This is the product in one picture: how much there is, and that it is
- * interleaved rather than blocked into six long runs.
+ * This replaces an earlier decorative grid of 200 coloured squares. That grid
+ * looked like a chart but was coloured by index modulo six — a made-up pattern,
+ * not the real rail — so it implied information it did not carry. These are
+ * real days with their real questions, which is both honest and a better
+ * argument for the product.
  */
-function TileWall({ animate }: { animate: boolean }) {
-  const wallRef = useRef<HTMLDivElement | null>(null)
-
-  /*
-   * Arm the entry animation, then disarm it once the staggered run would have
-   * finished. Disarming returns the tiles to their resting state, which is
-   * visible — so if the animation never actually ran (a hidden document
-   * suspends them), the wall still ends up on screen instead of blank.
-   */
-  useEffect(() => {
-    const el = wallRef.current
-    if (!el || !animate) return
-    el.classList.add('wall-armed')
-    const total = 200 * 7 + 620 + 400 // stagger + duration + margin
-    const t = window.setTimeout(() => el.classList.remove('wall-armed'), total)
-    return () => {
-      window.clearTimeout(t)
-      el.classList.remove('wall-armed')
-    }
-  }, [animate])
-
+function DayPreview() {
   return (
-    <div className="scene w-full overflow-hidden py-6">
-      {/* 20 columns is not a Tailwind default, and the tile size is clamped so
-          200 cells fit a phone without a horizontal scrollbar. */}
-      <div
-        ref={wallRef}
-        className="tile-wall mx-auto grid w-fit gap-[3px]"
-        style={{ gridTemplateColumns: 'repeat(20, clamp(9px, 1.6vw, 18px))' }}
-      >
-        {Array.from({ length: 200 }, (_, i) => (
+    <div className="scene grid md:grid-cols-3 gap-3 mt-5">
+      {SAMPLE_DAYS.map((d) => (
+        <article key={d.day} className="card card-3d p-4 min-w-0 reveal text-left">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="font-mono text-[11px] text-muted">
+              day {String(d.day).padStart(3, '0')}
+            </span>
+            <span className="font-mono text-[10px] text-muted shrink-0">{d.cost}</span>
+          </div>
+
+          <h3 className="font-display font-bold text-base mt-1.5">{d.topic}</h3>
+
           <span
-            key={i}
-            className="tile aspect-square rounded-[2px]"
-            style={{
-              // Every twentieth day is a rest day; the rest rotate by domain.
-              background: i % 20 === 19 ? 'rgb(var(--rule))' : TILE_TONES[i % 6],
-              ['--i' as string]: String(i),
-            }}
-            aria-hidden="true"
-          />
-        ))}
-      </div>
+            className={`inline-block mt-2 font-mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded border ${d.tone}`}
+          >
+            {d.domain}
+          </span>
+
+          {/* The question is the day. Watching the video is not the deliverable. */}
+          <p className="text-[13px] mt-3 leading-relaxed border-l-2 border-brand/50 pl-3">
+            {d.prompt}
+          </p>
+        </article>
+      ))}
     </div>
   )
 }
@@ -245,20 +255,22 @@ export default function Landing() {
           </div>
         </section>
 
-        {/* ------------------------------ tile wall ----------------------------- */}
-        <section className="px-4 pt-14">
-          <div className="max-w-5xl mx-auto reveal">
-            <span className="eyebrow">the whole thing, at once</span>
-            <h2 className="font-display text-2xl sm:text-3xl font-bold mt-1 max-w-2xl">
-              Two hundred days, six subjects, deliberately interleaved.
-            </h2>
-            <p className="text-sm text-muted mt-2 max-w-2xl leading-relaxed">
-              Each tile is one day, coloured by subject. They alternate on purpose — a bad week
-              costs you a little of everything instead of all of one thing. Every twentieth tile
-              is grey: a rest day the plan assumes you take.
-            </p>
+        {/* ----------------------------- a real day ---------------------------- */}
+        <section className="px-4 pt-16">
+          <div className="max-w-5xl mx-auto">
+            <div className="reveal">
+              <span className="eyebrow">what a day actually looks like</span>
+              <h2 className="font-display text-2xl sm:text-3xl font-bold mt-1 max-w-2xl">
+                One topic, one question, and the exact minutes it will cost you.
+              </h2>
+              <p className="text-sm text-muted mt-2 max-w-2xl leading-relaxed">
+                Three real days from the rail, unedited. Subjects rotate rather than running in
+                blocks, so a bad week costs a little of everything instead of all of one thing —
+                and every twentieth day is deliberately empty.
+              </p>
+            </div>
+            <DayPreview />
           </div>
-          <TileWall animate={animate} />
         </section>
 
         {/* --------------------------------- how -------------------------------- */}

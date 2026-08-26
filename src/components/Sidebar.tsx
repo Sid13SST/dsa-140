@@ -1,4 +1,4 @@
-export type Section = 'home' | 'dsa' | 'rail' | 'library'
+export type Section = 'home' | 'dsa' | 'rail' | 'fde' | 'library'
 
 interface Props {
   active: Section
@@ -7,10 +7,17 @@ interface Props {
   hints?: Partial<Record<Section, string>>
 }
 
-const ITEMS: { id: Section; label: string; icon: string; blurb: string }[] = [
+const ITEMS: { id: Section; label: string; icon: string; blurb: string; hot?: boolean }[] = [
   { id: 'home', label: 'Overview', icon: '◈', blurb: 'Both tracks at a glance' },
   { id: 'dsa', label: 'DSA', icon: '⌘', blurb: '140-day problem plan' },
   { id: 'rail', label: 'The 200', icon: '⬢', blurb: 'One 20-min thread beside DSA' },
+  {
+    id: 'fde',
+    label: 'FDE',
+    icon: '◆',
+    blurb: 'Customer-embedded engineering',
+    hot: true,
+  },
   { id: 'library', label: 'Library', icon: '◉', blurb: 'Full tracks, labs, resources' },
 ]
 
@@ -45,6 +52,21 @@ export default function Sidebar({ active, onChange, hints }: Props) {
                   {it.icon}
                 </span>
                 <span className="text-sm font-semibold whitespace-nowrap">{it.label}</span>
+                {it.hot && (
+                  /* The role is genuinely in demand right now, so it is worth
+                     flagging — but as a small mark, not a shouting badge. */
+                  <span
+                    title="In high demand across AI labs and enterprise right now"
+                    className={`font-mono text-[8px] uppercase tracking-wider px-1 py-px rounded
+                      border ${
+                        on
+                          ? 'border-current/40 opacity-80'
+                          : 'text-miss border-miss/40 bg-miss/10'
+                      }`}
+                  >
+                    hot
+                  </span>
+                )}
                 {hints?.[it.id] && (
                   <span
                     className={`ml-auto font-mono text-[10px] ${on ? 'opacity-80' : 'text-muted'}`}

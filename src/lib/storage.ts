@@ -181,3 +181,25 @@ export function saveRail(p: SdProgress) {
     // Non-fatal, same as the other tracks.
   }
 }
+
+/* --------------------------- the FDE track --------------------------- */
+
+const FDE_KEY = 'dsa140:fde:v1'
+
+/** Day number → done. Its own key, like every other track. */
+export function loadFde(): SdProgress {
+  try {
+    const raw = localStorage.getItem(FDE_KEY)
+    return raw ? (JSON.parse(raw) as SdProgress) : {}
+  } catch {
+    return {}
+  }
+}
+
+export function saveFde(p: SdProgress) {
+  try {
+    localStorage.setItem(FDE_KEY, JSON.stringify(p))
+  } catch {
+    // Non-fatal, same as the other tracks.
+  }
+}
