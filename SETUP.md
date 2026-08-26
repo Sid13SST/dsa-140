@@ -16,8 +16,9 @@ the provider's dashboard into your host's environment variables.
 Two steps, and sign-in works. Clerk needs no database, no schema and no OAuth
 client of your own.
 
-1. Create an application at [clerk.com](https://dashboard.clerk.com). Choose the
-   sign-in methods you want — Google and email are both one toggle.
+1. Create an application at [dashboard.clerk.com](https://dashboard.clerk.com/sign-in)
+   (the bare dashboard root 404s — use the sign-in link). Choose the sign-in
+   methods you want; Google and email are each one toggle.
 2. Copy the **Publishable key** from API keys into `.env.local`:
 
    ```
