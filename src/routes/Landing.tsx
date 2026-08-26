@@ -183,7 +183,12 @@ export default function Landing() {
     : PAYMENTS_ENABLED
       ? `Get access — ₹${PRICE_RUPEES} once`
       : 'Create a free account'
-  const closingCta = !AUTH_ENABLED ? 'Start tonight' : heroCta
+  /*
+   * Always distinct from the hero, in every mode. The first version only
+   * differentiated these while accounts were off, so switching auth on brought
+   * the duplicate straight back.
+   */
+  const closingCta = 'Start tonight'
   const ctaNote = !AUTH_ENABLED
     ? 'No account needed. Your progress is saved in this browser.'
     : PAYMENTS_ENABLED
