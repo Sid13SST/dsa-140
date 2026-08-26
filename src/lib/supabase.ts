@@ -24,6 +24,20 @@ export const supabase: SupabaseClient | null = authConfigured
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
+        /*
+         * PKCE, not the implicit flow.
+         *
+         * The default for a browser app hands the access token back in the URL
+         * fragment, where it can leak through history, referrers, extensions or
+         * a shared screenshot. PKCE instead returns a short-lived one-time code
+         * and requires a verifier this client generated and never transmitted,
+         * so an intercepted code is useless to whoever grabbed it.
+         *
+         * This is the one auth hardening that is genuinely a code change; the
+         * rest — MFA, captcha, session lifetime — are Supabase dashboard
+         * settings and are listed in SETUP.md.
+         */
+        flowType: 'pkce',
       },
     })
   : null

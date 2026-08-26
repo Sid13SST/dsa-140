@@ -44,6 +44,24 @@ dashboard into Vercel's environment variables.
 
 To change who the admin is later, edit the `admins` table — no redeploy needed.
 
+### Hardening the sign-in
+
+The client already uses the **PKCE** flow rather than the implicit one, so an
+intercepted auth code is useless without a verifier this browser never sent.
+That is the only part that is code. The rest are dashboard settings, and they
+matter more than which auth vendor you pick:
+
+| Setting | Where | Why |
+| --- | --- | --- |
+| Enable MFA (TOTP) | Auth → Providers → MFA | The single biggest gain for an admin account |
+| Enable captcha | Auth → Settings → Bot and abuse protection | Stops automated sign-up floods |
+| Shorten JWT expiry | Auth → Settings → JWT expiry | Smaller window if a token ever leaks |
+| Restrict redirect URLs | Auth → URL Configuration | An open redirect is how OAuth flows get hijacked |
+| Leave RLS on everywhere | Already in schema.sql | The actual enforcement layer |
+
+Google sign-in means no password is ever stored here, so there is no password
+database to leak — which is worth more than any provider comparison.
+
 ---
 
 ## 2. Razorpay

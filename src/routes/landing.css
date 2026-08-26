@@ -1,0 +1,322 @@
+/*
+ * Landing page 3D.
+ *
+ * Deliberately no three.js. A WebGL bundle is ~600KB for a page whose job is to
+ * load fast and say what the product is; CSS 3D transforms are hardware
+ * accelerated, weigh nothing, and degrade to flat layout on their own.
+ *
+ * Everything animated here is transform or opacity only — both composite on the
+ * GPU without triggering layout or paint, so a scroll stays at 60fps.
+ *
+ * ACCESSIBILITY IS NOT OPTIONAL HERE. Vestibular disorders make large parallax
+ * and motion genuinely unpleasant, so the whole file collapses to static under
+ * prefers-reduced-motion at the bottom. Nothing below is load-bearing for
+ * meaning — remove every animation and the page still reads correctly.
+ */
+
+/* --------------------------------------------------------------------------
+ * The scene: one shared perspective so children share a vanishing point.
+ * -------------------------------------------------------------------------- */
+.scene {
+  perspective: 1200px;
+  perspective-origin: 50% 40%;
+}
+
+/* --------------------------------------------------------------------------
+ * Receding grid floor. Two layers of repeating-linear-gradient on a plane
+ * rotated away from the viewer, scrolling toward it forever.
+ * -------------------------------------------------------------------------- */
+.grid-floor {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 60vh;
+  overflow: hidden;
+  pointer-events: none;
+  /* Fades out before it reaches the content, so text never sits on lines. */
+  mask-image: linear-gradient(to top, black 0%, transparent 85%);
+  -webkit-mask-image: linear-gradient(to top, black 0%, transparent 85%);
+}
+
+.grid-floor::before {
+  content: '';
+  position: absolute;
+  left: -50%;
+  right: -50%;
+  top: 0;
+  height: 200%;
+  background-image:
+    repeating-linear-gradient(
+      to right,
+      rgb(var(--brand) / 0.28) 0 1px,
+      transparent 1px 90px
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      rgb(var(--brand) / 0.28) 0 1px,
+      transparent 1px 90px
+    );
+  transform: rotateX(72deg);
+  transform-origin: 50% 0;
+  animation: floor-drift 7s linear infinite;
+}
+
+@keyframes floor-drift {
+  from {
+    background-position:
+      0 0,
+      0 0;
+  }
+  to {
+    background-position:
+      0 0,
+      0 90px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+ * Aurora: two slow, offset radial blooms. Sits behind everything at low alpha.
+ * -------------------------------------------------------------------------- */
+.aurora {
+  position: absolute;
+  inset: -20% -10% auto -10%;
+  height: 90vh;
+  pointer-events: none;
+  filter: blur(70px);
+  opacity: 0.55;
+}
+
+.aurora span {
+  position: absolute;
+  display: block;
+  width: 46vw;
+  height: 46vw;
+  max-width: 620px;
+  max-height: 620px;
+  border-radius: 50%;
+  will-change: transform;
+}
+
+.aurora span:nth-child(1) {
+  left: 4%;
+  top: 6%;
+  background: radial-gradient(circle, rgb(var(--brand) / 0.55), transparent 68%);
+  animation: bloom-a 19s ease-in-out infinite;
+}
+
+.aurora span:nth-child(2) {
+  right: 2%;
+  top: 0%;
+  background: radial-gradient(circle, rgb(var(--ac) / 0.4), transparent 68%);
+  animation: bloom-b 23s ease-in-out infinite;
+}
+
+@keyframes bloom-a {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(6%, 8%, 0) scale(1.15);
+  }
+}
+
+@keyframes bloom-b {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1.08);
+  }
+  50% {
+    transform: translate3d(-7%, 6%, 0) scale(0.95);
+  }
+}
+
+/* --------------------------------------------------------------------------
+ * Tilt cards. --mx/--my are written by a pointer handler in JS as -1..1, and
+ * the transform reads them — so JS never touches style properties that would
+ * cost a layout, it only updates two custom properties.
+ * -------------------------------------------------------------------------- */
+.tilt {
+  transform-style: preserve-3d;
+  transform: rotateY(calc(var(--mx, 0) * 9deg)) rotateX(calc(var(--my, 0) * -9deg));
+  transition: transform 400ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+/* Lift the contents off the card face so the parallax reads as depth. */
+.tilt-layer {
+  transform: translateZ(38px);
+}
+
+.tilt-layer-sm {
+  transform: translateZ(18px);
+}
+
+/* --------------------------------------------------------------------------
+ * Domain cards: a subtle 3D lift with a sheen that tracks the pointer.
+ * -------------------------------------------------------------------------- */
+.card-3d {
+  position: relative;
+  transform-style: preserve-3d;
+  transition:
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 320ms ease,
+    border-color 320ms ease;
+  will-change: transform;
+}
+
+.card-3d:hover {
+  transform: translateY(-6px) rotateX(4deg) scale(1.02);
+  box-shadow: 0 22px 45px -18px rgb(var(--brand) / 0.5);
+  border-color: rgb(var(--brand) / 0.45);
+}
+
+.card-3d::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(130deg, rgb(var(--brand) / 0.16), transparent 55%);
+  opacity: 0;
+  transition: opacity 320ms ease;
+  pointer-events: none;
+}
+
+.card-3d:hover::after {
+  opacity: 1;
+}
+
+/* --------------------------------------------------------------------------
+ * The 200-tile wall. Each tile fades and lifts in on a stagger driven by an
+ * inline --i, so 200 elements animate without 200 CSS rules.
+ * -------------------------------------------------------------------------- */
+.tile-wall {
+  transform: rotateX(48deg) rotateZ(-38deg);
+  transform-style: preserve-3d;
+}
+
+/*
+ * Tiles are visible by default for the same reason the reveals are: a CSS
+ * animation is suspended in a document that never becomes visible, so anything
+ * relying on one to fade IN can stay at zero forever. The entry animation is
+ * applied only while the wall is armed, and the arming class is removed once
+ * the run would have finished — so the resting state is always "visible".
+ */
+.wall-armed .tile {
+  opacity: 0;
+  animation: tile-in 620ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: calc(var(--i) * 7ms);
+}
+
+@keyframes tile-in {
+  from {
+    opacity: 0;
+    transform: translateZ(-60px);
+  }
+  to {
+    opacity: 1;
+    transform: translateZ(0);
+  }
+}
+
+/* --------------------------------------------------------------------------
+ * Scroll reveal. The observer flips [data-inview] and the transform resolves.
+ * -------------------------------------------------------------------------- */
+/*
+ * Content ships VISIBLE. JavaScript adds .reveal-armed only once it has an
+ * observer watching, and removes it on cleanup. If the script never runs, or
+ * the observer never delivers, the page still reads — which is the whole point,
+ * because the usual version of this pattern hides everything up front and
+ * leaves a blank page whenever the observer stays quiet.
+ */
+.reveal {
+  transition:
+    opacity 700ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.reveal.reveal-armed {
+  opacity: 0;
+  transform: translate3d(0, 26px, 0);
+}
+
+.reveal.reveal-armed[data-inview='true'] {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+/* --------------------------------------------------------------------------
+ * Hero text: a gradient that drifts across the headline.
+ * -------------------------------------------------------------------------- */
+.shine {
+  background: linear-gradient(
+    100deg,
+    rgb(var(--ink)) 12%,
+    rgb(var(--brand)) 38%,
+    rgb(var(--ac)) 54%,
+    rgb(var(--ink)) 80%
+  );
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shine-drift 9s linear infinite;
+}
+
+@keyframes shine-drift {
+  to {
+    background-position: 220% center;
+  }
+}
+
+/* A single hairline that sweeps under the header. */
+.hairline {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(var(--brand) / 0.85),
+    rgb(var(--ac) / 0.7),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: hairline-sweep 6s linear infinite;
+}
+
+@keyframes hairline-sweep {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* --------------------------------------------------------------------------
+ * Everything above is decoration. Under reduced motion it all stops, and the
+ * reveal states resolve immediately so no content is left invisible — the
+ * failure mode of naive scroll animations.
+ * -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .grid-floor::before,
+  .aurora span,
+  .shine,
+  .hairline,
+  .wall-armed .tile {
+    animation: none !important;
+    opacity: 1;
+  }
+
+  .tilt,
+  .card-3d,
+  .card-3d:hover {
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .reveal,
+  .reveal.reveal-armed {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .tile-wall {
+    transform: none;
+  }
+}
