@@ -1,21 +1,21 @@
 {
-  "updatedAt": "2026-08-26T01:00:59.373Z",
+  "updatedAt": "2026-08-26T06:39:55.910Z",
   "contests": [
     {
-      "id": "ac-awc0143",
-      "name": "AtCoder Weekday Contest 0143 Beta",
-      "platform": "AtCoder",
-      "startsAt": 1787742000000,
-      "durationMin": 60,
-      "url": "https://atcoder.jp/contests/awc0143"
-    },
-    {
       "id": "cc-START253",
-      "name": "Starters 253",
+      "name": "Starters 253 (Rated till 6 star)",
       "platform": "CodeChef",
       "startsAt": 1787754600000,
       "durationMin": 120,
       "url": "https://www.codechef.com/START253"
+    },
+    {
+      "id": "cc-PLACEPREP05",
+      "name": "Placement Prep Weekends - 05",
+      "platform": "CodeChef",
+      "startsAt": 1787941826000,
+      "durationMin": 150,
+      "url": "https://www.codechef.com/PLACEPREP05"
     },
     {
       "id": "ac-ahc070",
@@ -104,6 +104,14 @@
       "startsAt": 1789905600000,
       "durationMin": 150,
       "url": "https://atcoder.jp/contests/arc230"
+    },
+    {
+      "id": "ac-ahc072",
+      "name": "ALGO ARTIS Programming Contest 2026 September（AtCoder Heuristic Contest 072）",
+      "platform": "AtCoder",
+      "startsAt": 1790330400000,
+      "durationMin": 60,
+      "url": "https://atcoder.jp/contests/ahc072"
     }
   ]
 }
