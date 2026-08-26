@@ -1,12 +1,17 @@
+import { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { PRICE_RUPEES } from '../lib/pricing'
 import { AUTH_ENABLED, PAYMENTS_ENABLED } from '../lib/flags'
+import { useCountUp, usePrefersReducedMotion, useReveal, useTilt } from './useLandingMotion'
+import './landing.css'
 
 /**
- * The public page. Everything here is marketing copy and summary counts —
- * deliberately NOT imported from the data files, because importing them would
- * pull the whole curriculum into the public bundle.
+ * The public page.
+ *
+ * Everything here is marketing copy and summary counts — deliberately NOT
+ * imported from the data files, because importing them would pull the whole
+ * curriculum into the public bundle.
  *
  * The cost of that choice is that these numbers can drift from the generators.
  * They are correct as of the 200-day rail: 50 + 30 + 25 + 25 + 35 + 25 domain
@@ -14,19 +19,19 @@ import { AUTH_ENABLED, PAYMENTS_ENABLED } from '../lib/flags'
  * If you change a generator, change them here too.
  */
 const NUMBERS = [
-  { value: '503', label: 'DSA problems', sub: 'across 140 dated days' },
-  { value: '200', label: 'days of fundamentals', sub: '~20 minutes each' },
-  { value: '100', label: 'practice questions', sub: 'self-graded on rubrics' },
-  { value: '48', label: 'mock interviews', sub: 'with an AI that pushes back' },
+  { value: 503, label: 'DSA problems', sub: 'across 140 dated days' },
+  { value: 200, label: 'days of fundamentals', sub: '~20 minutes each' },
+  { value: 100, label: 'practice questions', sub: 'self-graded on rubrics' },
+  { value: 48, label: 'mock interviews', sub: 'with an AI that pushes back' },
 ]
 
 const DOMAINS = [
-  { name: 'Backend', days: 50, what: 'APIs, concurrency, caching, queues, auth, testing' },
-  { name: 'Databases', days: 30, what: 'Indexes, query plans, joins, replication, sharding' },
-  { name: 'Linux & networking', days: 25, what: 'TCP, TLS, sockets, virtual memory, the kernel' },
-  { name: 'DevOps', days: 25, what: 'Containers, CI, SLOs, incidents, postmortems' },
-  { name: 'System design', days: 35, what: 'Estimation, consistency, reliability, case studies' },
-  { name: 'AI/ML engineering', days: 25, what: 'Serving, retrieval, evaluation, monitoring' },
+  { name: 'Backend', days: 50, what: 'APIs, concurrency, caching, queues, auth, testing', glyph: '⌗' },
+  { name: 'Databases', days: 30, what: 'Indexes, query plans, joins, replication, sharding', glyph: '⛁' },
+  { name: 'Linux & networking', days: 25, what: 'TCP, TLS, sockets, virtual memory, the kernel', glyph: '⌁' },
+  { name: 'DevOps', days: 25, what: 'Containers, CI, SLOs, incidents, postmortems', glyph: '⬡' },
+  { name: 'System design', days: 35, what: 'Estimation, consistency, reliability, case studies', glyph: '⬢' },
+  { name: 'AI/ML engineering', days: 25, what: 'Serving, retrieval, evaluation, monitoring', glyph: '◉' },
 ]
 
 const STEPS = [
@@ -47,14 +52,91 @@ const STEPS = [
   },
 ]
 
-function Stat({ value, label, sub }: { value: string; label: string; sub: string }) {
+/** Domain colour for the tile wall, in the same order the rail interleaves them. */
+const TILE_TONES = [
+  'rgb(var(--brand) / 0.85)',
+  'rgb(var(--ac) / 0.8)',
+  'rgb(var(--warn) / 0.75)',
+  'rgb(var(--miss) / 0.7)',
+  'rgb(var(--brand-deep) / 0.8)',
+  'rgb(var(--muted) / 0.5)',
+]
+
+function Stat({
+  value,
+  label,
+  sub,
+  animate,
+}: {
+  value: number
+  label: string
+  sub: string
+  animate: boolean
+}) {
+  const { ref, value: shown } = useCountUp(value, animate)
   return (
     <div className="min-w-0">
-      <div className="font-mono text-3xl sm:text-4xl font-bold tabular-nums leading-none text-brand">
-        {value}
+      <span
+        ref={ref}
+        className="block font-mono text-3xl sm:text-5xl font-bold tabular-nums leading-none text-brand"
+      >
+        {shown}
+      </span>
+      <span className="block text-[13px] font-semibold mt-2">{label}</span>
+      <span className="block text-[11px] text-muted mt-0.5">{sub}</span>
+    </div>
+  )
+}
+
+/**
+ * 200 tiles on a tilted plane, coloured by domain and staggered in.
+ *
+ * This is the product in one picture: how much there is, and that it is
+ * interleaved rather than blocked into six long runs.
+ */
+function TileWall({ animate }: { animate: boolean }) {
+  const wallRef = useRef<HTMLDivElement | null>(null)
+
+  /*
+   * Arm the entry animation, then disarm it once the staggered run would have
+   * finished. Disarming returns the tiles to their resting state, which is
+   * visible — so if the animation never actually ran (a hidden document
+   * suspends them), the wall still ends up on screen instead of blank.
+   */
+  useEffect(() => {
+    const el = wallRef.current
+    if (!el || !animate) return
+    el.classList.add('wall-armed')
+    const total = 200 * 7 + 620 + 400 // stagger + duration + margin
+    const t = window.setTimeout(() => el.classList.remove('wall-armed'), total)
+    return () => {
+      window.clearTimeout(t)
+      el.classList.remove('wall-armed')
+    }
+  }, [animate])
+
+  return (
+    <div className="scene w-full overflow-hidden py-6">
+      {/* 20 columns is not a Tailwind default, and the tile size is clamped so
+          200 cells fit a phone without a horizontal scrollbar. */}
+      <div
+        ref={wallRef}
+        className="tile-wall mx-auto grid w-fit gap-[3px]"
+        style={{ gridTemplateColumns: 'repeat(20, clamp(9px, 1.6vw, 18px))' }}
+      >
+        {Array.from({ length: 200 }, (_, i) => (
+          <span
+            key={i}
+            className="tile aspect-square rounded-[2px]"
+            style={{
+              // Every twentieth day is a rest day; the rest rotate by domain.
+              background: i % 20 === 19 ? 'rgb(var(--rule))' : TILE_TONES[i % 6],
+              ['--i' as string]: String(i),
+            }}
+            aria-hidden="true"
+          />
+        ))}
       </div>
-      <div className="text-[13px] font-semibold mt-1.5">{label}</div>
-      <div className="text-[11px] text-muted mt-0.5">{sub}</div>
     </div>
   )
 }
@@ -62,11 +144,16 @@ function Stat({ value, label, sub }: { value: string; label: string; sub: string
 export default function Landing() {
   const { status, me } = useAuth()
   const signedIn = status === 'signed-in'
+  const reduced = usePrefersReducedMotion()
+  const animate = !reduced
+
+  useReveal(animate)
+  const heroRef = useTilt<HTMLDivElement>(animate)
 
   /*
-   * With the paywall off, signing up IS getting access — there is no payment
-   * step to send anyone to, and advertising a price you cannot charge would be
-   * a lie on the first screen.
+   * With accounts off, opening the dashboard IS the call to action — there is
+   * nothing to sign up for, and advertising a price nothing can charge would
+   * be a lie on the first screen.
    */
   const ctaTo = !AUTH_ENABLED
     ? '/app'
@@ -76,10 +163,10 @@ export default function Landing() {
         : '/app'
       : '/signin?mode=signup'
   const ctaLabel = !AUTH_ENABLED
-    ? 'Open the dashboard →'
+    ? 'Open the dashboard'
     : PAYMENTS_ENABLED
-      ? `Get access — ₹${PRICE_RUPEES} once →`
-      : 'Create a free account →'
+      ? `Get access — ₹${PRICE_RUPEES} once`
+      : 'Create a free account'
   const ctaNote = !AUTH_ENABLED
     ? 'No account needed. Your progress is saved in this browser.'
     : PAYMENTS_ENABLED
@@ -87,10 +174,16 @@ export default function Landing() {
       : 'Free while in development. One click with Google.'
 
   return (
-    <div className="min-h-full">
-      <header className="border-b border-rule">
+    <div className="min-h-full relative overflow-x-clip">
+      {/* ------------------------- ambient background ------------------------- */}
+      <div className="aurora" aria-hidden="true">
+        <span />
+        <span />
+      </div>
+
+      <header className="relative z-10 border-b border-rule/70 backdrop-blur-sm">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <span className="font-display font-bold text-lg">
+          <span className="font-display font-bold text-lg tracking-tight">
             Backend<span className="text-brand">200</span>
           </span>
           <div className="flex items-center gap-2">
@@ -114,114 +207,159 @@ export default function Landing() {
             )}
           </div>
         </div>
+        <div className="hairline h-px w-full" aria-hidden="true" />
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-10 space-y-12">
-        {/* ------------------------------- hero ------------------------------- */}
-        <section className="max-w-3xl">
-          <span className="eyebrow">a 200-day plan, not a playlist</span>
-          <h1 className="font-display text-3xl sm:text-5xl font-bold mt-2 leading-[1.1]">
-            Become a backend engineer who can actually pass the interview.
-          </h1>
-          <p className="text-base sm:text-lg text-muted mt-4 leading-relaxed">
-            Most prep is a pile of bookmarks. This is a dated plan: 503 DSA problems on a
-            140-day schedule, and one twenty-minute thread beside it covering backend,
-            databases, Linux, networking, DevOps, system design and AI/ML — finishing the
-            same week your DSA plan does.
-          </p>
-          <div className="flex flex-wrap items-center gap-3 mt-6">
-            <Link className="btn btn-primary" to={ctaTo}>
-              {ctaLabel}
-            </Link>
-            <span className="text-[12px] text-muted">{ctaNote}</span>
+      <main className="relative z-10">
+        {/* -------------------------------- hero -------------------------------- */}
+        <section className="scene relative px-4 pt-14 pb-20">
+          <div className="grid-floor" aria-hidden="true" />
+          <div ref={heroRef} className="tilt max-w-5xl mx-auto relative">
+            <div className="tilt-layer max-w-3xl">
+              <span className="eyebrow">a 200-day plan, not a playlist</span>
+              <h1 className="font-display text-4xl sm:text-6xl font-bold mt-3 leading-[1.05] shine">
+                Become a backend engineer who can actually pass the interview.
+              </h1>
+              <p className="text-base sm:text-lg text-muted mt-5 leading-relaxed max-w-2xl">
+                Most prep is a pile of bookmarks. This is a dated plan: 503 DSA problems on a
+                140-day schedule, and one twenty-minute thread beside it covering backend,
+                databases, Linux, networking, DevOps, system design and AI/ML — finishing the
+                same week your DSA plan does.
+              </p>
+              <div className="flex flex-wrap items-center gap-3 mt-7">
+                <Link className="btn btn-primary text-sm px-5 py-2.5" to={ctaTo}>
+                  {ctaLabel} <span aria-hidden="true">→</span>
+                </Link>
+                <span className="text-[12px] text-muted">{ctaNote}</span>
+              </div>
+            </div>
           </div>
         </section>
 
-        {/* ------------------------------ numbers ----------------------------- */}
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-6 py-6 border-y border-rule">
-          {NUMBERS.map((n) => (
-            <Stat key={n.label} {...n} />
-          ))}
-        </section>
-
-        {/* ------------------------------- how -------------------------------- */}
-        <section>
-          <span className="eyebrow">how it works</span>
-          <div className="grid md:grid-cols-3 gap-4 mt-3">
-            {STEPS.map((s) => (
-              <div key={s.n} className="card p-4 min-w-0">
-                <span className="font-mono text-[11px] text-brand font-bold">{s.n}</span>
-                <h3 className="font-display font-bold text-base mt-1">{s.title}</h3>
-                <p className="text-[13px] text-muted mt-1.5 leading-relaxed">{s.body}</p>
-              </div>
+        {/* ------------------------------- numbers ------------------------------ */}
+        <section className="px-4">
+          <div className="max-w-5xl mx-auto grid grid-cols-2 lg:grid-cols-4 gap-8 py-10 border-y border-rule reveal">
+            {NUMBERS.map((n) => (
+              <Stat key={n.label} {...n} animate={animate} />
             ))}
           </div>
         </section>
 
-        {/* ----------------------------- the rail ----------------------------- */}
-        <section>
-          <span className="eyebrow">what the 200 days cover</span>
-          <h2 className="font-display text-2xl font-bold mt-1">
-            Six subjects, interleaved so none of them monopolises a month.
-          </h2>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
-            {DOMAINS.map((d) => (
-              <div key={d.name} className="card p-3 min-w-0">
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="font-display font-bold text-sm">{d.name}</span>
-                  <span className="font-mono text-[10px] text-muted shrink-0">{d.days} days</span>
+        {/* ------------------------------ tile wall ----------------------------- */}
+        <section className="px-4 pt-14">
+          <div className="max-w-5xl mx-auto reveal">
+            <span className="eyebrow">the whole thing, at once</span>
+            <h2 className="font-display text-2xl sm:text-3xl font-bold mt-1 max-w-2xl">
+              Two hundred days, six subjects, deliberately interleaved.
+            </h2>
+            <p className="text-sm text-muted mt-2 max-w-2xl leading-relaxed">
+              Each tile is one day, coloured by subject. They alternate on purpose — a bad week
+              costs you a little of everything instead of all of one thing. Every twentieth tile
+              is grey: a rest day the plan assumes you take.
+            </p>
+          </div>
+          <TileWall animate={animate} />
+        </section>
+
+        {/* --------------------------------- how -------------------------------- */}
+        <section className="px-4 pt-10">
+          <div className="max-w-5xl mx-auto">
+            <span className="eyebrow reveal">how it works</span>
+            <div className="grid md:grid-cols-3 gap-4 mt-3">
+              {STEPS.map((s) => (
+                <div key={s.n} className="card card-3d p-5 min-w-0 reveal">
+                  <span className="font-mono text-xs text-brand font-bold">{s.n}</span>
+                  <h3 className="font-display font-bold text-base mt-1.5">{s.title}</h3>
+                  <p className="text-[13px] text-muted mt-2 leading-relaxed">{s.body}</p>
                 </div>
-                <p className="text-[11px] text-muted mt-1 leading-snug">{d.what}</p>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </section>
 
-        {/* ----------------------------- what else ---------------------------- */}
-        <section className="grid md:grid-cols-2 gap-4">
-          <div className="card p-4">
-            <span className="eyebrow">an interviewer that does not flatter you</span>
-            <p className="text-[13px] text-muted mt-1.5 leading-relaxed">
-              48 mock rounds across system design and AI/ML. One question at a time, straight
-              at the weakest thing you just said, with a whiteboard it can actually read. It
-              grades from the transcript at the end — so it credits what you said, not what
-              you meant.
+        {/* ------------------------------- domains ------------------------------ */}
+        <section className="px-4 pt-16">
+          <div className="max-w-5xl mx-auto">
+            <div className="reveal">
+              <span className="eyebrow">what the 200 days cover</span>
+              <h2 className="font-display text-2xl sm:text-3xl font-bold mt-1">
+                Six subjects, none of them monopolising a month.
+              </h2>
+            </div>
+            <div className="scene grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-5">
+              {DOMAINS.map((d) => (
+                <div key={d.name} className="card card-3d p-4 min-w-0 reveal">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="font-display font-bold text-sm">
+                      <span aria-hidden="true" className="text-brand mr-1.5 font-mono">
+                        {d.glyph}
+                      </span>
+                      {d.name}
+                    </span>
+                    <span className="font-mono text-[10px] text-muted shrink-0">
+                      {d.days} days
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted mt-1.5 leading-snug">{d.what}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ------------------------------ what else ----------------------------- */}
+        <section className="px-4 pt-16">
+          <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-4">
+            <div className="card card-3d p-5 reveal">
+              <span className="eyebrow">an interviewer that does not flatter you</span>
+              <p className="text-[13px] text-muted mt-2 leading-relaxed">
+                48 mock rounds across system design and AI/ML. One question at a time, straight
+                at the weakest thing you just said, with a whiteboard it can actually read. It
+                grades from the transcript at the end — so it credits what you said, not what
+                you meant.
+              </p>
+            </div>
+            <div className="card card-3d p-5 reveal">
+              <span className="eyebrow">tracking that tells the truth</span>
+              <p className="text-[13px] text-muted mt-2 leading-relaxed">
+                A 140-day run grid where a broken streak is visible instantly, live contest
+                listings from LeetCode, Codeforces, CodeChef and AtCoder, topic coverage, pace
+                against plan, and a printable PDF report of the lot.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* ------------------------------- honesty ------------------------------ */}
+        <section className="px-4 pt-16">
+          <div className="max-w-5xl mx-auto card p-5 border-warn/40 reveal">
+            <span className="eyebrow">what this is not</span>
+            <p className="text-[13px] text-muted mt-2 leading-relaxed max-w-3xl">
+              It is not a course and there are no lectures of ours. Every day points at one
+              specific video or one deep-linked article from people who teach this better than we
+              could — all of it checked as live. What this adds is the sequencing, the question
+              set, the interviewer and the tracking. The underlying sources are all public and
+              free, and if you would rather assemble them yourself, you should.
             </p>
           </div>
-          <div className="card p-4">
-            <span className="eyebrow">tracking that tells the truth</span>
-            <p className="text-[13px] text-muted mt-1.5 leading-relaxed">
-              A 140-day run grid where a broken streak is visible instantly, live contest
-              listings from LeetCode, Codeforces, CodeChef and AtCoder, topic coverage, pace
-              against plan, and a printable PDF report of the lot.
-            </p>
+        </section>
+
+        {/* --------------------------------- cta -------------------------------- */}
+        <section className="scene px-4 py-20">
+          <div className="max-w-5xl mx-auto text-center reveal">
+            <h2 className="font-display text-2xl sm:text-4xl font-bold shine">
+              Day one is a video and one question.
+            </h2>
+            <p className="text-sm text-muted mt-3">Start it tonight.</p>
+            <Link className="btn btn-primary mt-6 text-sm px-6 py-3" to={ctaTo}>
+              {ctaLabel} <span aria-hidden="true">→</span>
+            </Link>
           </div>
-        </section>
-
-        {/* ------------------------------ honesty ----------------------------- */}
-        <section className="card p-4 border-warn/40">
-          <span className="eyebrow">what this is not</span>
-          <p className="text-[13px] text-muted mt-1.5 leading-relaxed">
-            It is not a course and there are no lectures of ours. Every day points at one
-            specific video or one deep-linked article from people who teach this better than we
-            could — all of it checked as live. What this adds is the sequencing, the question
-            set, the interviewer and the tracking. The underlying sources are all public and
-            free, and if you would rather assemble them yourself, you should.
-          </p>
-        </section>
-
-        {/* -------------------------------- cta ------------------------------- */}
-        <section className="text-center py-4">
-          <h2 className="font-display text-2xl font-bold">Day one is a video and one question.</h2>
-          <p className="text-sm text-muted mt-2">Start it tonight.</p>
-          <Link className="btn btn-primary mt-4" to={ctaTo}>
-            {ctaLabel}
-          </Link>
         </section>
       </main>
 
-      <footer className="border-t border-rule">
-        <div className="max-w-5xl mx-auto px-4 py-4 text-[11px] text-muted flex flex-wrap gap-x-4 gap-y-1 justify-between">
+      <footer className="relative z-10 border-t border-rule">
+        <div className="max-w-5xl mx-auto px-4 py-5 text-[11px] text-muted flex flex-wrap gap-x-4 gap-y-1 justify-between">
           <span>Backend 200</span>
           <span>
             {!AUTH_ENABLED
