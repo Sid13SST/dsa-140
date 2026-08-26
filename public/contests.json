@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-26T06:39:55.910Z",
+  "updatedAt": "2026-08-26T12:41:38.834Z",
   "contests": [
     {
       "id": "cc-START253",
@@ -35,7 +35,7 @@
     },
     {
       "id": "cf-2258",
-      "name": "Codeforces Round (Div. 2)",
+      "name": "Codeforces Round 1118 (Div. 2)",
       "platform": "Codeforces",
       "startsAt": 1788014100000,
       "durationMin": 120,
@@ -48,6 +48,14 @@
       "startsAt": 1788091200000,
       "durationMin": 150,
       "url": "https://atcoder.jp/contests/arc228"
+    },
+    {
+      "id": "cc-DSAMONDAY018",
+      "name": "Monday Munch - DSA Challenge 018 (Rated)",
+      "platform": "CodeChef",
+      "startsAt": 1788183000000,
+      "durationMin": 180,
+      "url": "https://www.codechef.com/DSAMONDAY018"
     },
     {
       "id": "cc-START254",
