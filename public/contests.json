@@ -1,14 +1,6 @@
 {
-  "updatedAt": "2026-08-26T12:41:38.834Z",
+  "updatedAt": "2026-08-26T19:42:12.280Z",
   "contests": [
-    {
-      "id": "cc-START253",
-      "name": "Starters 253 (Rated till 6 star)",
-      "platform": "CodeChef",
-      "startsAt": 1787754600000,
-      "durationMin": 120,
-      "url": "https://www.codechef.com/START253"
-    },
     {
       "id": "cc-PLACEPREP05",
       "name": "Placement Prep Weekends - 05",
