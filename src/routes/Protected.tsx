@@ -6,10 +6,10 @@ import { AUTH_ENABLED, PAYMENTS_ENABLED } from '../lib/flags'
  * Route guard for the dashboard.
  *
  * This is a CONVENIENCE, not a security boundary. It decides what to render, so
- * a paying user is not shown a payment wall and a signed-out user is not shown
- * a spinner forever. The actual protection is that the content endpoint refuses
- * to serve anything without a valid session and a paid profile — flipping a
- * flag in devtools here gets you an empty dashboard, not a free one.
+ * a paying user is not shown a payment wall and a signed-out user is not left
+ * on a spinner. Every protected endpoint verifies the Clerk token for itself,
+ * so flipping a flag in devtools changes what you SEE and not what the server
+ * will hand over.
  */
 export default function Protected({ children }: { children: React.ReactNode }) {
   const { status, me, error, refresh } = useAuth()
@@ -21,10 +21,11 @@ export default function Protected({ children }: { children: React.ReactNode }) {
   if (status === 'unconfigured') {
     return (
       <Notice title="Not configured">
-        This build has no Supabase credentials, so it cannot sign anyone in. Add{' '}
-        <code className="font-mono text-[12px]">VITE_SUPABASE_URL</code> and{' '}
-        <code className="font-mono text-[12px]">VITE_SUPABASE_ANON_KEY</code> to your hosting
-        environment and redeploy.
+        Accounts are switched on but this build has no{' '}
+        <code className="font-mono text-[12px]">VITE_CLERK_PUBLISHABLE_KEY</code>, so it cannot
+        sign anyone in. Add the key and redeploy, or set{' '}
+        <code className="font-mono text-[12px]">VITE_AUTH_ENABLED=false</code> to open the
+        dashboard without an account.
       </Notice>
     )
   }

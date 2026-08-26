@@ -1,6 +1,7 @@
 import crypto from 'node:crypto'
 import { RAZORPAY_KEY_SECRET } from './_lib/env'
-import { adminClient, fail, HttpError, requireUser } from './_lib/supabase'
+import { fail, HttpError, requireUser } from './_lib/clerk'
+import { findUserByOrder, settlePayment } from './_lib/payments'
 
 /**
  * POST /api/verify — confirm a payment the browser just completed.
@@ -38,39 +39,24 @@ export default async function handler(req: any, res: any) {
     const b = Buffer.from(String(razorpay_signature), 'utf8')
     const ok = a.length === b.length && crypto.timingSafeEqual(a, b)
 
-    const db = adminClient()
-
     if (!ok) {
-      await db
-        .from('payments')
-        .update({ status: 'failed', updated_at: new Date().toISOString() })
-        .eq('razorpay_order_id', razorpay_order_id)
+      const owner = await findUserByOrder(razorpay_order_id)
+      if (owner) await settlePayment(owner, razorpay_order_id, { status: 'failed' }, false)
       throw new HttpError(400, 'That payment could not be verified')
     }
 
     // The order must belong to the caller. Without this check a signed-in user
     // could replay somebody else's valid signature and be marked paid.
-    const { data: payment } = await db
-      .from('payments')
-      .select('user_id, status')
-      .eq('razorpay_order_id', razorpay_order_id)
-      .maybeSingle()
+    const owner = await findUserByOrder(razorpay_order_id)
+    if (!owner) throw new HttpError(404, 'That order is not recognised')
+    if (owner !== user.id) throw new HttpError(403, 'That order belongs to someone else')
 
-    if (!payment) throw new HttpError(404, 'That order is not recognised')
-    if (payment.user_id !== user.id) throw new HttpError(403, 'That order belongs to someone else')
-
-    const now = new Date().toISOString()
-    await db
-      .from('payments')
-      .update({
-        status: 'paid',
-        razorpay_payment_id,
-        confirmed_by: 'verify',
-        updated_at: now,
-      })
-      .eq('razorpay_order_id', razorpay_order_id)
-
-    await db.from('profiles').update({ has_paid: true, paid_at: now }).eq('id', user.id)
+    await settlePayment(
+      user.id,
+      razorpay_order_id,
+      { status: 'paid', razorpay_payment_id, confirmed_by: 'verify' },
+      true,
+    )
 
     res.status(200).json({ ok: true })
   } catch (e) {

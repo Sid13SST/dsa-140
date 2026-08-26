@@ -1,52 +1,69 @@
-import { adminClient, fail, HttpError, isAdmin, requireUser } from './_lib/supabase'
+import { clerk, fail, HttpError, requireUser } from './_lib/clerk'
+import type { PaymentRow } from './_lib/payments'
 
 /**
- * GET /api/admin — the super-admin view: who signed up, who paid.
+ * GET /api/admin — who signed up, who paid.
  *
- * The admin check happens HERE, against the admins table, not in React. A
- * frontend route guard only stops an honest user from wandering in; this stops
- * anyone else from calling the endpoint directly with their own token.
+ * The admin check happens HERE, against the server's own list, not in React. A
+ * frontend guard only stops an honest user wandering in; this stops anyone else
+ * calling the endpoint directly with their own valid token.
+ *
+ * It answers 404 rather than 403 to non-admins, so the response does not
+ * confirm that an admin surface exists at all.
  */
 export default async function handler(req: any, res: any) {
   try {
     if (req.method !== 'GET') throw new HttpError(405, 'Use GET')
 
-    const user = await requireUser(req)
-    if (!(await isAdmin(user.email))) {
-      // Deliberately the same message a signed-out caller would get for a
-      // missing route: do not confirm that an admin surface exists.
-      throw new HttpError(404, 'Not found')
-    }
+    const caller = await requireUser(req)
+    if (!caller.isAdmin) throw new HttpError(404, 'Not found')
 
-    const db = adminClient()
+    const client = clerk()
 
-    const { data: users, error: usersError } = await db
-      .from('admin_users')
-      .select('*')
-      .order('created_at', { ascending: false })
-    if (usersError) throw new HttpError(500, 'Could not load users')
+    // Clerk paginates; 500 is far beyond anything this will see, and asking for
+    // everything in one call keeps the handler simple.
+    const list = await client.users.getUserList({ limit: 500, orderBy: '-created_at' })
 
-    const { data: payments, error: payError } = await db
-      .from('payments')
-      .select('email, razorpay_order_id, razorpay_payment_id, status, amount, currency, confirmed_by, created_at')
-      .order('created_at', { ascending: false })
-      .limit(500)
-    if (payError) throw new HttpError(500, 'Could not load payments')
+    const users = list.data.map((u) => {
+      const meta = (u.publicMetadata ?? {}) as { hasPaid?: boolean; paidAt?: string }
+      const payments = ((u.privateMetadata ?? {}) as { payments?: PaymentRow[] }).payments ?? []
+      return {
+        id: u.id,
+        email:
+          u.emailAddresses.find((e) => e.id === u.primaryEmailAddressId)?.emailAddress ?? '—',
+        full_name: [u.firstName, u.lastName].filter(Boolean).join(' ') || null,
+        has_paid: !!meta.hasPaid,
+        paid_at: meta.paidAt ?? null,
+        created_at: new Date(u.createdAt).toISOString(),
+        last_seen_at: new Date(u.lastActiveAt ?? u.createdAt).toISOString(),
+        successful_payments: (payments as PaymentRow[]).filter((p) => p.status === 'paid').length,
+        failed_payments: (payments as PaymentRow[]).filter((p) => p.status === 'failed').length,
+      }
+    })
 
-    const paidRows = (payments ?? []).filter((p) => p.status === 'paid')
-    const signedUp = users?.length ?? 0
-    const paid = (users ?? []).filter((u) => u.has_paid).length
+    // The audit trail lives in each user's privateMetadata — never readable by
+    // the browser, only through this endpoint.
+    const payments: (PaymentRow & { email: string })[] = list.data.flatMap((u) => {
+      const rows = ((u.privateMetadata ?? {}) as { payments?: PaymentRow[] }).payments ?? []
+      const email =
+        u.emailAddresses.find((e) => e.id === u.primaryEmailAddressId)?.emailAddress ?? '—'
+      return rows.map((p) => ({ ...p, email }))
+    })
+    payments.sort((a, b) => b.created_at.localeCompare(a.created_at))
+
+    const paid = users.filter((u) => u.has_paid).length
+    const paidRows = payments.filter((p) => p.status === 'paid')
 
     res.status(200).json({
-      users: users ?? [],
-      payments: payments ?? [],
+      users,
+      payments,
       totals: {
-        signedUp,
+        signedUp: users.length,
         paid,
-        // Paise in the database, rupees at the edge — one conversion, here.
-        revenueRupees: paidRows.reduce((n, p) => n + (p.amount ?? 0), 0) / 100,
-        conversionPct: signedUp ? Math.round((paid / signedUp) * 100) : 0,
-        failed: (payments ?? []).filter((p) => p.status === 'failed').length,
+        revenueRupees:
+          paidRows.reduce((n, p) => n + Number(p.amount ?? 0), 0) / 100,
+        conversionPct: users.length ? Math.round((paid / users.length) * 100) : 0,
+        failed: payments.filter((p) => p.status === 'failed').length,
       },
     })
   } catch (e) {
