@@ -172,11 +172,18 @@ export default function Landing() {
         ? '/plans'
         : '/app'
       : '/signin?mode=signup'
-  const ctaLabel = !AUTH_ENABLED
-    ? 'Open the dashboard'
+  /*
+   * Three calls to action on one page is normal — header, hero, close. Three
+   * calls to action reading "Open the dashboard" is not: it reads as a stutter
+   * and gives the eye nothing new at the bottom of the page. Each one names a
+   * different moment instead.
+   */
+  const heroCta = !AUTH_ENABLED
+    ? 'Start day 1'
     : PAYMENTS_ENABLED
       ? `Get access — ₹${PRICE_RUPEES} once`
       : 'Create a free account'
+  const closingCta = !AUTH_ENABLED ? 'Start tonight' : heroCta
   const ctaNote = !AUTH_ENABLED
     ? 'No account needed. Your progress is saved in this browser.'
     : PAYMENTS_ENABLED
@@ -238,7 +245,7 @@ export default function Landing() {
               </p>
               <div className="flex flex-wrap items-center gap-3 mt-7">
                 <Link className="btn btn-primary text-sm px-5 py-2.5" to={ctaTo}>
-                  {ctaLabel} <span aria-hidden="true">→</span>
+                  {heroCta} <span aria-hidden="true">→</span>
                 </Link>
                 <span className="text-[12px] text-muted">{ctaNote}</span>
               </div>
@@ -362,9 +369,11 @@ export default function Landing() {
             <h2 className="font-display text-2xl sm:text-4xl font-bold shine">
               Day one is a video and one question.
             </h2>
-            <p className="text-sm text-muted mt-3">Start it tonight.</p>
+            <p className="text-sm text-muted mt-3">
+              Twenty minutes, one question, and you are on the board.
+            </p>
             <Link className="btn btn-primary mt-6 text-sm px-6 py-3" to={ctaTo}>
-              {ctaLabel} <span aria-hidden="true">→</span>
+              {closingCta} <span aria-hidden="true">→</span>
             </Link>
           </div>
         </section>
