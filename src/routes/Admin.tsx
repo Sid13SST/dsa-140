@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { useAuth } from '../lib/auth'
-import { supabase } from '../lib/supabase'
+import { apiFetch, useAuth } from '../lib/auth'
 import { PAYMENTS_ENABLED } from '../lib/flags'
 
 interface AdminUser {
@@ -53,65 +52,39 @@ const DAY_MS = 86_400_000
 /**
  * The super-admin surface.
  *
- * It reads straight from Supabase with the anon key, and that is safe because
- * the `admin_users` view and the `payments` table both carry policies that
- * return rows ONLY to an address listed in the admins table. A non-admin
- * running this exact query in their own console gets an empty array back.
- * Postgres is the gate; this component only draws the result.
+ * Every figure comes from /api/admin, which verifies the caller's Clerk token
+ * and checks their email against the server's own admin list. A non-admin
+ * calling that endpoint directly with a perfectly valid token gets a 404 — not
+ * a 403, so the response does not even confirm the surface exists.
+ *
+ * This component never decides anything; it draws what the server agreed to
+ * send. The redirect below is a convenience so an ordinary user does not sit
+ * looking at an error.
  */
 export default function Admin() {
-  const { status, me } = useAuth()
+  const { status, me, getToken } = useAuth()
   const [tab, setTab] = useState<'people' | 'payments'>('people')
   const [data, setData] = useState<AdminData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
+  /**
+   * The admin check runs on the server, in /api/admin, against Clerk's own user
+   * list. A non-admin calling this endpoint with their own valid token gets a
+   * 404 — the component is only drawing what the server agreed to send.
+   */
   const load = useCallback(async () => {
-    if (!supabase) {
-      setError('Supabase is not configured in this build.')
-      setLoading(false)
-      return
-    }
     setLoading(true)
     setError(null)
     try {
-      const [usersRes, paymentsRes] = await Promise.all([
-        supabase.from('admin_users').select('*').order('created_at', { ascending: false }),
-        supabase
-          .from('payments')
-          .select(
-            'email, razorpay_order_id, razorpay_payment_id, status, amount, currency, confirmed_by, created_at',
-          )
-          .order('created_at', { ascending: false })
-          .limit(500),
-      ])
-
-      if (usersRes.error) throw new Error(usersRes.error.message)
-
-      const users = (usersRes.data ?? []) as AdminUser[]
-      // Payments may be empty while the paywall is off. Not worth failing on.
-      const payments = (paymentsRes.data ?? []) as AdminPayment[]
-      const paidRows = payments.filter((p) => p.status === 'paid')
-      const paid = users.filter((u) => u.has_paid).length
-
-      setData({
-        users,
-        payments,
-        totals: {
-          signedUp: users.length,
-          paid,
-          revenueRupees: paidRows.reduce((n, p) => n + (p.amount ?? 0), 0) / 100,
-          conversionPct: users.length ? Math.round((paid / users.length) * 100) : 0,
-          failed: payments.filter((p) => p.status === 'failed').length,
-        },
-      })
+      setData(await apiFetch<AdminData>('/api/admin', getToken))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load admin data')
       setData(null)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [getToken])
 
   useEffect(() => {
     if (status === 'signed-in') void load()
@@ -125,7 +98,7 @@ export default function Admin() {
 
   if (status === 'loading') return <Centered>Checking your account…</Centered>
   if (status !== 'signed-in') return <Navigate to="/signin" replace />
-  // Belt and braces: the policies are the real gate, this avoids a pointless render.
+  // Belt and braces: the endpoint is the real gate, this avoids a pointless render.
   if (me && !me.isAdmin) return <Navigate to="/app" replace />
 
   return (
@@ -150,8 +123,8 @@ export default function Admin() {
           <div className="card p-3 border-miss/40">
             <p className="text-[12px] text-miss">{error}</p>
             <p className="text-[11px] text-muted mt-1">
-              If this says a relation does not exist, <code>supabase/schema.sql</code> has not
-              been run yet.
+              This page needs the serverless functions, so it only works on the Vercel
+              deployment — GitHub Pages cannot run <code>api/</code>.
             </p>
           </div>
         )}

@@ -1,6 +1,6 @@
 import crypto from 'node:crypto'
 import { RAZORPAY_WEBHOOK_SECRET } from './_lib/env'
-import { adminClient } from './_lib/supabase'
+import { findUserByOrder, settlePayment } from './_lib/payments'
 
 /**
  * POST /api/webhook — Razorpay's server-to-server notification.
@@ -54,37 +54,36 @@ export default async function handler(req: any, res: any) {
       return
     }
 
-    const db = adminClient()
-    const now = new Date().toISOString()
+    const notesUser = payment?.notes?.user_id as string | undefined
 
     if (event.event === 'payment.captured' || event.event === 'order.paid') {
-      const { data: row } = await db
-        .from('payments')
-        .select('user_id')
-        .eq('razorpay_order_id', orderId)
-        .maybeSingle()
-
-      // Fall back to the notes attached when the order was created, in case the
-      // row insert failed but the payment still went through.
-      const userId = row?.user_id ?? payment?.notes?.user_id
+      // Prefer the recorded order; fall back to the notes attached at creation,
+      // in case the metadata write failed but the payment still went through.
+      const userId = (await findUserByOrder(orderId)) ?? notesUser
       if (userId) {
-        await db
-          .from('payments')
-          .update({
+        await settlePayment(
+          userId,
+          orderId,
+          {
             status: 'paid',
             razorpay_payment_id: payment.id,
             confirmed_by: 'webhook',
-            updated_at: now,
-          })
-          .eq('razorpay_order_id', orderId)
-
-        await db.from('profiles').update({ has_paid: true, paid_at: now }).eq('id', userId)
+            amount: payment.amount ?? 0,
+            currency: payment.currency ?? 'INR',
+          },
+          true,
+        )
       }
     } else if (event.event === 'payment.failed') {
-      await db
-        .from('payments')
-        .update({ status: 'failed', razorpay_payment_id: payment.id, updated_at: now })
-        .eq('razorpay_order_id', orderId)
+      const userId = (await findUserByOrder(orderId)) ?? notesUser
+      if (userId) {
+        await settlePayment(
+          userId,
+          orderId,
+          { status: 'failed', razorpay_payment_id: payment.id },
+          false,
+        )
+      }
     }
 
     res.status(200).json({ ok: true })

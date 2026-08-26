@@ -1,24 +1,17 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import type { Session } from '@supabase/supabase-js'
-import { authConfigured, supabase } from './supabase'
-import { PAYMENTS_ENABLED } from './flags'
+import { useCallback, useMemo } from 'react'
+import { useAuth as useClerkAuth, useClerk, useUser } from '@clerk/clerk-react'
+import { clerkConfigured, isAdminEmail } from './clerk'
+import { AUTH_ENABLED, PAYMENTS_ENABLED } from './flags'
 
 /**
- * Who the database says you are.
+ * The app's view of who you are.
  *
- * Everything here is read straight from Supabase with the anon key. That is
- * safe — and is the whole design — because Row Level Security decides what the
- * key can reach:
+ * Deliberately the same shape it had under Supabase, so Protected, Admin and
+ * Landing did not need rewriting when the provider changed. That is the point
+ * of having a wrapper at all.
  *
- *   profiles  a policy returns your own row, and every row if you are an admin
- *   admins    a policy returns rows ONLY to admins, so a non-empty result is
- *             itself the answer to "am I an admin"
- *   has_paid  readable, but writable only by the service-role key, and a
- *             trigger rejects the write outright if anyone else tries
- *
- * So the checks happen in Postgres, not in React. Editing this file, or the
- * state it produces, changes what you SEE and not what the database will hand
- * over. That is why no serverless function is needed while payments are off.
+ * Nothing here is an access decision. It decides what the UI SHOWS; the server
+ * decides what it SERVES, by verifying the session token on every request.
  */
 export interface Me {
   id: string
@@ -32,139 +25,120 @@ export interface Me {
 
 type Status = 'loading' | 'signed-out' | 'signed-in' | 'unconfigured'
 
-interface AuthValue {
+export interface AuthValue {
   status: Status
-  session: Session | null
   me: Me | null
-  /** Set when the profile could not be read — shown rather than assumed away. */
   error: string | null
-  signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
+  /** Token for calling our own /api endpoints. Null when signed out. */
+  getToken: () => Promise<string | null>
   refresh: () => Promise<void>
 }
 
-const Ctx = createContext<AuthValue | null>(null)
-
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null)
-  const [me, setMe] = useState<Me | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [ready, setReady] = useState(!authConfigured)
-
-  useEffect(() => {
-    if (!supabase) return
-    let alive = true
-
-    supabase.auth.getSession().then(({ data }) => {
-      if (!alive) return
-      setSession(data.session)
-      setReady(true)
-    })
-
-    // Fires on sign-in, sign-out and silent token refreshes.
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
-      if (!alive) return
-      setSession(next)
-      if (!next) setMe(null)
-    })
-
-    return () => {
-      alive = false
-      sub.subscription.unsubscribe()
-    }
-  }, [])
-
-  const loadMe = useCallback(async () => {
-    if (!supabase || !session?.user) {
-      setMe(null)
-      return
-    }
-    const user = session.user
-    try {
-      setError(null)
-
-      const [profileRes, adminRes] = await Promise.all([
-        supabase
-          .from('profiles')
-          .select('email, full_name, avatar_url, has_paid, paid_at')
-          .eq('id', user.id)
-          .maybeSingle(),
-        // A row comes back only if the policy lets it, so this IS the check.
-        supabase.from('admins').select('email').limit(1),
-      ])
-
-      if (profileRes.error) throw new Error(profileRes.error.message)
-
-      setMe({
-        id: user.id,
-        email: user.email ?? '',
-        fullName: profileRes.data?.full_name ?? (user.user_metadata?.full_name as string) ?? null,
-        avatarUrl: profileRes.data?.avatar_url ?? (user.user_metadata?.avatar_url as string) ?? null,
-        // With payments off nobody is gated, so the column is irrelevant.
-        hasPaid: PAYMENTS_ENABLED ? !!profileRes.data?.has_paid : true,
-        paidAt: profileRes.data?.paid_at ?? null,
-        isAdmin: !adminRes.error && (adminRes.data?.length ?? 0) > 0,
-      })
-
-      // Presence, so the admin page can show who is actually active. Best
-      // effort — a failure here must not block signing in.
-      void supabase
-        .from('profiles')
-        .update({ last_seen_at: new Date().toISOString() })
-        .eq('id', user.id)
-    } catch (e) {
-      // Never fall back to "allowed" on error. Failing closed is the point.
-      setMe(null)
-      setError(
-        e instanceof Error
-          ? `${e.message}. If this persists, the database schema may not have been applied yet.`
-          : 'Could not load your account',
-      )
-    }
-  }, [session])
-
-  useEffect(() => {
-    void loadMe()
-  }, [loadMe])
-
-  const signInWithGoogle = useCallback(async () => {
-    if (!supabase) throw new Error('Authentication is not configured yet')
-    const { error: err } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      // Land on the dashboard directly when there is no payment step.
-      options: {
-        redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}${
-          PAYMENTS_ENABLED ? 'plans' : 'app'
-        }`,
-      },
-    })
-    if (err) throw new Error(err.message)
-  }, [])
-
-  const signOut = useCallback(async () => {
-    if (!supabase) return
-    await supabase.auth.signOut()
-    setMe(null)
-  }, [])
-
-  const status: Status = !authConfigured
-    ? 'unconfigured'
-    : !ready
-      ? 'loading'
-      : session
-        ? 'signed-in'
-        : 'signed-out'
-
-  const value = useMemo(
-    () => ({ status, session, me, error, signInWithGoogle, signOut, refresh: loadMe }),
-    [status, session, me, error, signInWithGoogle, signOut, loadMe],
+/** Used when auth is switched off, or no publishable key is configured. */
+function useDisabledAuth(): AuthValue {
+  return useMemo(
+    () => ({
+      status: 'unconfigured' as const,
+      me: null,
+      error: null,
+      signOut: async () => {},
+      getToken: async () => null,
+      refresh: async () => {},
+    }),
+    [],
   )
-
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
 
-export function useAuth(): AuthValue {
-  const v = useContext(Ctx)
-  if (!v) throw new Error('useAuth must be used inside AuthProvider')
-  return v
+function useClerkBackedAuth(): AuthValue {
+  const { isLoaded, isSignedIn, user } = useUser()
+  const { getToken } = useClerkAuth()
+  const clerk = useClerk()
+
+  const signOut = useCallback(async () => {
+    await clerk.signOut()
+  }, [clerk])
+
+  // Clerk keeps the user object live, so there is nothing to re-fetch. Kept in
+  // the interface because callers still render a "try again" button.
+  const refresh = useCallback(async () => {}, [])
+
+  const me = useMemo<Me | null>(() => {
+    if (!isSignedIn || !user) return null
+    const email = user.primaryEmailAddress?.emailAddress ?? ''
+    /*
+     * hasPaid lives in Clerk's publicMetadata, written only by the server with
+     * the secret key — the browser can read it and cannot set it. With payments
+     * off nobody is gated, so the flag is irrelevant and everyone passes.
+     */
+    const paid = (user.publicMetadata as { hasPaid?: boolean; paidAt?: string }) ?? {}
+    return {
+      id: user.id,
+      email,
+      fullName: user.fullName,
+      avatarUrl: user.imageUrl ?? null,
+      hasPaid: PAYMENTS_ENABLED ? !!paid.hasPaid : true,
+      paidAt: paid.paidAt ?? null,
+      isAdmin: isAdminEmail(email),
+    }
+  }, [isSignedIn, user])
+
+  const status: Status = !isLoaded ? 'loading' : isSignedIn ? 'signed-in' : 'signed-out'
+
+  return useMemo(
+    () => ({ status, me, error: null, signOut, getToken, refresh }),
+    [status, me, signOut, getToken, refresh],
+  )
+}
+
+/**
+ * Picked ONCE, at module load.
+ *
+ * Clerk's hooks throw when ClerkProvider is not mounted, and it is not mounted
+ * while auth is switched off. Choosing between the two implementations here
+ * rather than with an `if` inside the hook keeps the hook order identical on
+ * every render, which is what the rules of hooks actually require. Both flags
+ * are build-time constants, so this can never change while the app is running.
+ */
+export const useAuth: () => AuthValue =
+  AUTH_ENABLED && clerkConfigured ? useClerkBackedAuth : useDisabledAuth
+
+/**
+ * Call one of our serverless functions with the caller's session attached.
+ *
+ * The token is a short-lived Clerk JWT. The server verifies it against Clerk's
+ * public keys, so a forged or expired one is rejected before any handler runs.
+ */
+export async function apiFetch<T>(
+  path: string,
+  getToken: () => Promise<string | null>,
+  init: RequestInit = {},
+): Promise<T> {
+  const token = await getToken()
+  const res = await fetch(path, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(init.headers ?? {}),
+    },
+  })
+
+  let body: unknown = null
+  try {
+    body = await res.json()
+  } catch {
+    // Usually an HTML error page from the host. Say something useful rather
+    // than surfacing a JSON parse error.
+    throw new Error(
+      res.status === 404
+        ? 'This endpoint is not available on this deployment — it needs the Vercel build, which runs the api/ functions.'
+        : `Server returned ${res.status}`,
+    )
+  }
+
+  if (!res.ok) {
+    throw new Error((body as { error?: string })?.error || `Server returned ${res.status}`)
+  }
+  return body as T
 }

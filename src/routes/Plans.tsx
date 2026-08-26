@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { useAuth } from '../lib/auth'
-import { api } from '../lib/supabase'
+import { apiFetch, useAuth } from '../lib/auth'
 import { PRICE_RUPEES } from '../lib/pricing'
 import { PAYMENTS_ENABLED } from '../lib/flags'
 
@@ -43,7 +42,7 @@ const INCLUDED = [
 ]
 
 export default function Plans() {
-  const { status, me, error: authError, refresh, signOut } = useAuth()
+  const { status, me, error: authError, refresh, signOut, getToken } = useAuth()
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -57,12 +56,12 @@ export default function Plans() {
       await loadCheckout()
 
       // The server decides the amount. Nothing here can change what is charged.
-      const order = await api<{
+      const order = await apiFetch<{
         orderId: string
         amount: number
         currency: string
         keyId: string
-      }>('/api/order', { method: 'POST' })
+      }>('/api/order', getToken, { method: 'POST' })
 
       if (!window.Razorpay) throw new Error('Checkout did not load')
 
@@ -78,7 +77,7 @@ export default function Plans() {
         handler: async (r: Record<string, string>) => {
           setNote('Payment received — confirming…')
           try {
-            await api('/api/verify', { method: 'POST', body: JSON.stringify(r) })
+            await apiFetch('/api/verify', getToken, { method: 'POST', body: JSON.stringify(r) })
             await refresh()
             navigate('/app', { replace: true })
           } catch (e) {
@@ -105,7 +104,7 @@ export default function Plans() {
       setError(e instanceof Error ? e.message : 'Could not start the payment')
       setBusy(false)
     }
-  }, [me, navigate, refresh])
+  }, [me, navigate, refresh, getToken])
 
   // The whole page is dormant until the paywall is switched back on.
   if (!PAYMENTS_ENABLED) return <Navigate to="/app" replace />

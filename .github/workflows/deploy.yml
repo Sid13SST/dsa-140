@@ -45,21 +45,13 @@ jobs:
 
       - name: Build
         # Pages serves this repo at /dsa-140/, not at the root.
-        #
-        # The Supabase values are read from repository variables, falling back
-        # to secrets so either works. Both are PUBLIC by design — they are
-        # compiled into the bundle and readable by anyone who opens devtools.
-        # Row Level Security is what protects the data, not their secrecy, so
-        # `vars` is the more honest home for them.
         run: npm run build
         env:
           VITE_BASE_PATH: /dsa-140/
-          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || secrets.VITE_SUPABASE_ANON_KEY }}
-          # Accounts and payments are both off for now: the dashboard opens
-          # straight from the landing page and progress lives in the browser.
-          # Payments could not work on Pages anyway — there are no serverless
-          # functions there for the Razorpay flow to reach.
+          # Accounts and payments are both off on Pages. Sign-in itself would
+          # work here — Clerk needs no backend — but the admin console and the
+          # Razorpay flow both call api/, which Pages cannot run. Turn these on
+          # for the Vercel deploy, not this one.
           VITE_AUTH_ENABLED: 'false'
           VITE_PAYMENTS_ENABLED: 'false'
       # Pages has no SPA rewrite, so a hard refresh on /plans would 404. Serving

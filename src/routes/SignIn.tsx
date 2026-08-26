@@ -1,109 +1,100 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
+import { SignIn as ClerkSignIn, SignUp as ClerkSignUp } from '@clerk/clerk-react'
 import { useAuth } from '../lib/auth'
+import { clerkConfigured } from '../lib/clerk'
 import { AUTH_ENABLED, PAYMENTS_ENABLED } from '../lib/flags'
 
 /**
- * Sign in and sign up are the same screen, because with Google they are the
- * same action — the first time you use it an account is created, after that it
- * signs you in. Showing two separate forms would be theatre.
+ * Sign in / sign up, rendered by Clerk.
+ *
+ * Using Clerk's prebuilt component rather than hand-rolling the form is the
+ * whole reason for the move: it brings Google, email, verification, password
+ * reset, MFA and the error states with it, and none of that is code worth
+ * writing twice. It reads the app's own CSS variables so it does not look
+ * bolted on, and follows the light/dark theme.
  */
 export default function SignIn() {
-  const { status, me, signInWithGoogle } = useAuth()
+  const { status, me } = useAuth()
   const [params] = useSearchParams()
   const signup = params.get('mode') === 'signup'
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     document.title = signup ? 'Sign up — Backend 200' : 'Sign in — Backend 200'
   }, [signup])
 
-  // Accounts are switched off, so there is no sign-in to offer.
+  // Accounts are switched off, so there is nothing to sign in to.
   if (!AUTH_ENABLED) return <Navigate to="/app" replace />
 
   if (status === 'signed-in') {
     return <Navigate to={!PAYMENTS_ENABLED || me?.hasPaid ? '/app' : '/plans'} replace />
   }
 
-  if (status === 'unconfigured') {
+  if (!clerkConfigured) {
     return (
       <Shell>
         <h1 className="font-display text-xl font-bold">Sign-in is not configured</h1>
         <p className="text-sm text-muted mt-2 leading-relaxed">
-          This build has no <code className="font-mono text-[12px]">VITE_SUPABASE_URL</code> or{' '}
-          <code className="font-mono text-[12px]">VITE_SUPABASE_ANON_KEY</code>. Nothing is broken
-          — the app will not pretend to sign you in when it cannot.
+          This build has no <code className="font-mono text-[12px]">VITE_CLERK_PUBLISHABLE_KEY</code>
+          . Nothing is broken — the app will not pretend to sign you in when it cannot.
         </p>
-        {/* Naming the exact place saves a round trip: these are build-time
-            values, so a running deploy cannot be fixed without rebuilding. */}
+        {/* Build-time values: a running deploy cannot be fixed without rebuilding. */}
         <p className="text-[12px] text-muted mt-3 leading-relaxed">
-          They are baked in at <strong>build</strong> time, so setting them means a redeploy.
-          On GitHub Pages: Settings → Secrets and variables → Actions → Variables. On Vercel:
-          Project → Settings → Environment Variables. Locally: copy{' '}
-          <code className="font-mono text-[12px]">.env.example</code> to{' '}
-          <code className="font-mono text-[12px]">.env.local</code> and restart the dev server.
+          It is baked in at <strong>build</strong> time, so setting it means a redeploy. Get the
+          key from the Clerk dashboard under API keys, then add it locally to{' '}
+          <code className="font-mono text-[12px]">.env.local</code>, or to your host's environment
+          variables.
         </p>
+        <Link className="btn text-xs mt-4" to="/">
+          &larr; Back
+        </Link>
       </Shell>
     )
   }
 
-  const go = async () => {
-    setBusy(true)
-    setError(null)
-    try {
-      await signInWithGoogle()
-      // On success the browser leaves for Google, so nothing after this runs.
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not start sign-in')
-      setBusy(false)
-    }
+  /*
+   * Clerk styles itself from these variables, so it inherits the app's palette
+   * in both themes rather than arriving as a white box in a dark page.
+   */
+  const appearance = {
+    variables: {
+      colorPrimary: 'rgb(var(--brand))',
+      colorBackground: 'rgb(var(--surface))',
+      colorText: 'rgb(var(--ink))',
+      colorTextSecondary: 'rgb(var(--muted))',
+      colorInputBackground: 'rgb(var(--ground))',
+      colorInputText: 'rgb(var(--ink))',
+      colorDanger: 'rgb(var(--miss))',
+      colorSuccess: 'rgb(var(--ac))',
+      borderRadius: '0.5rem',
+    },
+    elements: {
+      card: 'shadow-none border border-rule',
+      footer: 'hidden',
+    },
   }
 
   return (
-    <Shell>
-      <span className="eyebrow">{signup ? 'create your account' : 'welcome back'}</span>
-      <h1 className="font-display text-2xl font-bold mt-1">
-        {signup ? 'Start the 200 days' : 'Sign in to Backend 200'}
-      </h1>
-      <p className="text-sm text-muted mt-2 leading-relaxed">
-        {signup
-          ? 'One click with Google. No password to invent, and no password for us to leak.'
-          : 'Use the Google account you signed up with.'}
-      </p>
+    <div className="min-h-full flex flex-col items-center justify-center px-4 py-10 gap-4">
+      <Link className="font-display font-bold text-lg tracking-tight" to="/">
+        Backend<span className="text-brand">200</span>
+      </Link>
 
-      <button
-        onClick={go}
-        disabled={busy || status === 'loading'}
-        className="btn btn-primary w-full mt-5 justify-center py-2.5"
-      >
-        {busy ? 'Opening Google…' : 'Continue with Google'}
-      </button>
-
-      {error && (
-        <p className="text-[12px] text-miss mt-3" role="alert">
-          {error}
-        </p>
+      {signup ? (
+        <ClerkSignUp appearance={appearance} signInUrl="/signin" />
+      ) : (
+        <ClerkSignIn appearance={appearance} signUpUrl="/signin?mode=signup" />
       )}
 
-      <p className="text-[11px] text-muted mt-5 leading-relaxed">
-        We receive your name, email and profile picture from Google. Nothing else, and no
-        password ever reaches us. Payment is handled by Razorpay — card details never touch
-        this site.
+      <p className="text-[11px] text-muted max-w-sm text-center leading-relaxed">
+        Passwords, verification and multi-factor are handled by Clerk — none of it reaches this
+        site. Your progress stays in your browser until you sign in.
       </p>
 
-      <div className="mt-5 pt-4 border-t border-rule flex items-center justify-between gap-2">
-        <Link className="text-[12px] text-muted hover:text-ink" to="/">
-          &larr; Back
-        </Link>
-        <Link
-          className="text-[12px] text-brand-deep hover:underline"
-          to={signup ? '/signin' : '/signin?mode=signup'}
-        >
-          {signup ? 'Already have an account?' : 'New here? Create an account'}
-        </Link>
-      </div>
-    </Shell>
+      <Link className="text-[12px] text-muted hover:text-ink" to="/">
+        &larr; Back
+      </Link>
+    </div>
   )
 }
 
