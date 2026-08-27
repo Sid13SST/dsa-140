@@ -133,6 +133,30 @@ export function leetcodeUpcoming(from = Date.now(), count = 4): Contest[] {
   )
 }
 
+/**
+ * How old the static file may get before the client stops trusting it alone.
+ *
+ * The scheduled job aims for every 6 hours, but GitHub delays and sometimes
+ * drops cron runs under load — so "the file loaded fine" is not the same as
+ * "the file is current".
+ */
+const STALE_AFTER_MS = 6 * 60 * 60 * 1000
+
+/** Same contest from two sources: platform plus start minute is enough. */
+const contestKey = (c: Contest) => `${c.platform}|${Math.round(c.startsAt / 60_000)}`
+
+/** Merge live results into file results without duplicating a round. */
+function mergeContests(base: Contest[], extra: Contest[]): Contest[] {
+  const seen = new Set(base.map(contestKey))
+  const out = [...base]
+  for (const c of extra) {
+    if (seen.has(contestKey(c))) continue
+    seen.add(contestKey(c))
+    out.push(c)
+  }
+  return out
+}
+
 export async function loadAllContests(limit = 14): Promise<{
   contests: Contest[]
   contestError: string | null
@@ -143,29 +167,54 @@ export async function loadAllContests(limit = 14): Promise<{
   let fetched: Contest[] = []
   let contestError: string | null = null
   let updatedAt: number | null = null
+  let fileOk = false
 
   try {
     const file = await fromStaticFile()
     fetched = file.contests
     updatedAt = file.updatedAt
+    fileOk = true
   } catch {
-    // The static file (refreshed server-side every 6h) is unavailable — fall
-    // back to live browser fetches, which only work where CORS isn't enforced.
-    // AtCoder has no fallback: it's scraped from HTML, which a browser can't do
-    // cross-origin, so it appears only when the static file is available.
+    fileOk = false
+  }
+
+  /*
+   * Top up from the live APIs when the file is MISSING **or** STALE.
+   *
+   * The previous version only fell back when the fetch threw, so a file that
+   * loaded successfully but had not been refreshed for a day was used as-is:
+   * the panel warned that it was old and then never improved, no matter how
+   * many times it refreshed. Stale-but-readable is the common case, because it
+   * is what a skipped cron run produces — so it is the case worth handling.
+   *
+   * AtCoder is scraped from HTML server-side and cannot be fetched cross-origin,
+   * so it is the one platform that genuinely depends on the job running.
+   */
+  const age = updatedAt === null ? Infinity : Date.now() - updatedAt
+  const needsTopUp = !fileOk || age > STALE_AFTER_MS
+
+  if (needsTopUp) {
     const [cf, cc] = await Promise.allSettled([fetchCodeforces(), fetchCodeChef()])
-    if (cf.status === 'fulfilled') fetched.push(...cf.value)
-    if (cc.status === 'fulfilled') fetched.push(...cc.value)
+    if (cf.status === 'fulfilled') fetched = mergeContests(fetched, cf.value)
+    if (cc.status === 'fulfilled') fetched = mergeContests(fetched, cc.value)
 
     const failed = [
       cf.status === 'rejected' && 'Codeforces',
       cc.status === 'rejected' && 'CodeChef',
-      'AtCoder',
+      // Never available live: it needs the server-side HTML scrape.
+      !fileOk && 'AtCoder',
     ].filter(Boolean) as string[]
 
-    contestError =
-      `${failed.join(', ')} rounds aren't loading right now. The scheduled job refreshes ` +
-      'them every 6 hours — until then, check those sites directly.'
+    if (!fileOk) {
+      contestError =
+        `${failed.join(', ')} rounds aren't loading right now. The scheduled job refreshes ` +
+        'them every 6 hours — until then, check those sites directly.'
+    } else if (failed.length) {
+      contestError =
+        `The scheduled refresh looks overdue, and a live top-up for ${failed.join(', ')} ` +
+        'also failed. Showing what is in the cached list.'
+    }
+    // File was stale but the live top-up worked: no error worth showing.
   }
 
   // Drop anything already finished, then keep the near horizon. Callers
