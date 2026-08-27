@@ -1,6 +1,14 @@
 {
-  "updatedAt": "2026-08-26T19:42:12.280Z",
+  "updatedAt": "2026-08-27T06:55:27.580Z",
   "contests": [
+    {
+      "id": "ac-awc0144",
+      "name": "AtCoder Weekday Contest 0144 Beta",
+      "platform": "AtCoder",
+      "startsAt": 1787828400000,
+      "durationMin": 60,
+      "url": "https://atcoder.jp/contests/awc0144"
+    },
     {
       "id": "cc-PLACEPREP05",
       "name": "Placement Prep Weekends - 05",
@@ -82,6 +90,22 @@
       "url": "https://atcoder.jp/contests/abc474"
     },
     {
+      "id": "cf-2260",
+      "name": "Educational Codeforces Round 194 (Rated for Div. 2)",
+      "platform": "Codeforces",
+      "startsAt": 1788878100000,
+      "durationMin": 120,
+      "url": "https://codeforces.com/contest/2260"
+    },
+    {
+      "id": "cc-START255",
+      "name": "Starters 255",
+      "platform": "CodeChef",
+      "startsAt": 1788964200000,
+      "durationMin": 120,
+      "url": "https://www.codechef.com/START255"
+    },
+    {
       "id": "ac-abc475",
       "name": "AtCoder Beginner Contest 475",
       "platform": "AtCoder",
@@ -98,6 +122,14 @@
       "url": "https://atcoder.jp/contests/ahc071"
     },
     {
+      "id": "cc-START256",
+      "name": "Starters 256",
+      "platform": "CodeChef",
+      "startsAt": 1789569000000,
+      "durationMin": 120,
+      "url": "https://www.codechef.com/START256"
+    },
+    {
       "id": "ac-arc230",
       "name": "AtCoder Regular Contest++ 230",
       "platform": "AtCoder",
@@ -110,7 +142,7 @@
       "name": "ALGO ARTIS Programming Contest 2026 September（AtCoder Heuristic Contest 072）",
       "platform": "AtCoder",
       "startsAt": 1790330400000,
-      "durationMin": 60,
+      "durationMin": 300,
       "url": "https://atcoder.jp/contests/ahc072"
     }
   ]
