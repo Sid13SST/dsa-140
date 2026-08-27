@@ -2,8 +2,11 @@ name: Refresh contest list
 
 on:
   schedule:
-    # Every 6 hours. Codeforces announces rounds days ahead, so this is plenty.
-    - cron: '0 */6 * * *'
+    # Every 3 hours, not 6. GitHub delays scheduled runs under load and drops
+    # them outright often enough that a 6-hour cadence produced day-old data.
+    # Halving the interval means a missed run costs 3 hours instead of 6, and
+    # the job is a no-op commit when nothing changed.
+    - cron: '0 */3 * * *'
   workflow_dispatch:
 
 permissions:
@@ -23,10 +26,22 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if ! git diff --quiet -- public/contests.json; then
-            git add public/contests.json
-            git commit -m "chore: refresh contest list"
-            git push
-          else
+          if git diff --quiet -- public/contests.json; then
             echo "No change."
+            exit 0
           fi
+          git add public/contests.json
+          git commit -m "chore: refresh contest list"
+          # A merge landing between checkout and push would otherwise reject
+          # this as non-fast-forward, and the run would fail silently until
+          # somebody noticed the dates had stopped moving.
+          for attempt in 1 2 3; do
+            if git push; then
+              echo "Pushed on attempt $attempt."
+              exit 0
+            fi
+            echo "Push rejected, rebasing and retrying."
+            git pull --rebase --autostash origin main
+          done
+          echo "::error::Could not push the refreshed contest list after 3 attempts."
+          exit 1
