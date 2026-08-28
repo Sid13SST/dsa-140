@@ -1,14 +1,6 @@
 {
-  "updatedAt": "2026-08-28T05:02:50.181Z",
+  "updatedAt": "2026-08-28T17:59:28.420Z",
   "contests": [
-    {
-      "id": "ac-awc0145",
-      "name": "AtCoder Weekday Contest 0145 Beta",
-      "platform": "AtCoder",
-      "startsAt": 1787914800000,
-      "durationMin": 60,
-      "url": "https://atcoder.jp/contests/awc0145"
-    },
     {
       "id": "cc-PLACEPREP05",
       "name": "Placement Prep Weekends - 05",
@@ -48,6 +40,14 @@
       "startsAt": 1788091200000,
       "durationMin": 150,
       "url": "https://atcoder.jp/contests/arc228"
+    },
+    {
+      "id": "ac-awc0146",
+      "name": "AtCoder Weekday Contest 0146 Beta",
+      "platform": "AtCoder",
+      "startsAt": 1788174000000,
+      "durationMin": 60,
+      "url": "https://atcoder.jp/contests/awc0146"
     },
     {
       "id": "cc-DSAMONDAY018",
@@ -142,8 +142,16 @@
       "name": "ALGO ARTIS Programming Contest 2026 September（AtCoder Heuristic Contest 072）",
       "platform": "AtCoder",
       "startsAt": 1790330400000,
-      "durationMin": 300,
+      "durationMin": 100,
       "url": "https://atcoder.jp/contests/ahc072"
+    },
+    {
+      "id": "ac-aalc001",
+      "name": "AAL Contest 001: Let's use segtree!",
+      "platform": "AtCoder",
+      "startsAt": 1791777600000,
+      "durationMin": 300,
+      "url": "https://atcoder.jp/contests/aalc001"
     },
     {
       "id": "cf-2261",
