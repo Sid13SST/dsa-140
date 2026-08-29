@@ -1,5 +1,7 @@
 import crypto from 'node:crypto'
 import { RAZORPAY_WEBHOOK_SECRET } from './_lib/env'
+import { HttpError } from './_lib/errors'
+import { secure } from './_lib/http'
 import { findUserByOrder, settlePayment } from './_lib/payments'
 
 /**
@@ -13,25 +15,47 @@ import { findUserByOrder, settlePayment } from './_lib/payments'
  * The signature is computed over the RAW body. Parsing to JSON and
  * re-stringifying changes whitespace and key order, which changes the hash, so
  * the raw bytes are read off the stream before anything touches them.
+ *
+ * `auth: 'none'` and that is correct: the caller is Razorpay's server, which
+ * has no Clerk session and never will. The shared webhook secret IS the
+ * authentication here, and it is checked below on the exact bytes received.
+ * The guard still supplies the method allowlist, the rate limit and the
+ * no-store headers — and the body is read manually, so requireJson stays off.
  */
 export const config = { api: { bodyParser: false } }
 
+/**
+ * Read the raw body, with a ceiling.
+ *
+ * Unbounded, this is a memory-exhaustion hole with a public URL: anyone who
+ * knows the path can open a request and keep sending. A Razorpay event is a
+ * couple of kilobytes, so a megabyte is already absurdly generous, and past it
+ * the stream is destroyed rather than merely ignored — otherwise the sender
+ * keeps writing to a socket that is still accepting.
+ */
+const MAX_WEBHOOK_BYTES = 1024 * 1024
+
 function readRaw(req: any): Promise<string> {
   return new Promise((resolve, reject) => {
-    let data = ''
-    req.on('data', (chunk: Buffer) => (data += chunk.toString('utf8')))
-    req.on('end', () => resolve(data))
+    const chunks: Buffer[] = []
+    let size = 0
+    req.on('data', (chunk: Buffer) => {
+      size += chunk.length
+      if (size > MAX_WEBHOOK_BYTES) {
+        req.destroy()
+        reject(new HttpError(413, 'That request is too large', 'webhook_too_large'))
+        return
+      }
+      chunks.push(chunk)
+    })
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
     req.on('error', reject)
   })
 }
 
-export default async function handler(req: any, res: any) {
-  if (req.method !== 'POST') {
-    res.status(405).json({ error: 'Use POST' })
-    return
-  }
-
-  try {
+export default secure(
+  { name: 'webhook', methods: ['POST'], auth: 'none', rateLimit: { limit: 120 } },
+  async (req, res) => {
     const raw = await readRaw(req)
     const signature = String(req.headers['x-razorpay-signature'] ?? '')
 
@@ -87,9 +111,5 @@ export default async function handler(req: any, res: any) {
     }
 
     res.status(200).json({ ok: true })
-  } catch (e) {
-    // A 500 makes Razorpay retry, which is what we want for a transient fault.
-    console.error('webhook failed', e)
-    res.status(500).json({ error: 'Webhook processing failed' })
-  }
-}
+  },
+)

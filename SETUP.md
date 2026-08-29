@@ -96,9 +96,30 @@ means a rebuild. A running deploy cannot be fixed by changing a setting.
 | `CLERK_SECRET_KEY` | **no — never** |
 | `RAZORPAY_KEY_SECRET` | **no — never** |
 | `RAZORPAY_WEBHOOK_SECRET` | **no — never** |
+| `CLERK_AUTHORIZED_PARTIES` | not secret, but server-side — see below |
+| `CLERK_ISSUER` | not secret, but server-side — see below |
+| `ADMIN_EMAILS` | not secret, but server-side — this is the admin list |
 
 **Anything prefixed `VITE_` is compiled into the bundle and is public.** Fine for
 the first two, fatal for the rest.
+
+### The two variables the auth policy wants
+
+Neither is a secret; both change what the API will accept, so they belong in the
+host's environment rather than the bundle.
+
+**`CLERK_AUTHORIZED_PARTIES`** — comma-separated origins allowed to mint tokens
+for this API, e.g. `https://your-app.vercel.app,http://localhost:5173`. It is
+what stops a token issued to some other application on the same Clerk instance
+being spent here. Leaving it unset does not break anything — the check simply
+cannot run, and every function logs `no_authorized_parties` until you set it.
+
+**`CLERK_ISSUER`** — required the day you move from a development Clerk instance
+to a **production** one, because production instances issue from
+`clerk.<your-domain>` and that is not a shape any check can trust on sight
+(`clerk.anything-at-all.com` is registrable by anyone). Development instances on
+`*.clerk.accounts.dev` are recognised without it. This one fails **closed**: set
+it wrong and every request answers 401 with `wrong_issuer` in the function logs.
 
 ---
 
@@ -115,9 +136,37 @@ the first two, fatal for the rest.
 
 | Rule | Enforced by |
 | --- | --- |
-| You are who you say you are | Clerk signs the session token; the server verifies it against Clerk's public keys on every request |
+| You are who you say you are | Clerk signs the session token; the server verifies the RS256 signature against Clerk's published keys on every request |
+| The token was minted for THIS app | the `azp` claim is checked against `CLERK_AUTHORIZED_PARTIES` |
+| The token was minted for this INSTANCE | the `iss` claim, against `CLERK_ISSUER` or the development-issuer shape |
+| An old token cannot be replayed | `iat` must be within five minutes, independently of `exp` |
+| A revoked session dies immediately | the admin path re-checks the session with Clerk rather than trusting the token's minute |
+| A banned or locked account is out | the live user record is read on every authenticated request |
+| The admin console needs recent proof | the `fva` claim — first factor within the hour — on top of the email list |
 | You cannot mark yourself paid | `publicMetadata` is writable only with the secret key |
-| Only you see the admin console | `/api/admin` checks your email server-side and answers 404 otherwise |
+| Only you see the admin console | `/api/admin` checks your email server-side and answers **404**, not 403, to everyone else |
+| No cross-site request can act as you | the API reads the `Authorization` header only and never a cookie, so there is nothing for a forged form post to carry |
+| One caller cannot exhaust the API | per-IP and per-user rate limits in front of every endpoint |
+| A rule cannot rot unnoticed | `npm run check:auth` runs 46 hostile-input checks against the policy in the build |
+
+Run `npm run check:auth` on its own to see what the policy actually refuses.
+
+### What this is NOT
+
+Worth being straight about, because "hardened" is not "invulnerable":
+
+- **The rate limiter counts per warm serverless instance**, not per deployment.
+  It stops a stuck client and casual probing; it is not a defence against a
+  distributed flood. That belongs at the edge, and Clerk's own bot protection
+  and lockout handle the sign-in side.
+- **The CSP ships in Report-Only mode**, so it currently reports violations and
+  blocks nothing. Load every route once, read the console, widen the list in
+  `vercel.json` to cover the legitimate sources, then rename the header to
+  `Content-Security-Policy` to enforce it.
+- **Anyone with your `CLERK_SECRET_KEY` is you.** No amount of claim checking
+  survives that, which is why it lives only in the host's environment.
+- **MFA is a dashboard toggle, not code.** The step-up check above can require a
+  second factor, but only if you have turned one on in Clerk.
 | A payment is genuine | HMAC-SHA256 over `order_id\|payment_id`, compared timing-safely on the server |
 
 React's route guards are convenience only. They decide what to *show*; the

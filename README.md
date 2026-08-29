@@ -111,6 +111,47 @@ LeetCode's GraphQL endpoint also blocks browser requests. These are labelled
 
 ---
 
+## Authentication
+
+Clerk issues the session token; this API decides what it will accept. A request
+has to survive all of this before a handler runs:
+
+1. A well-formed `Authorization: Bearer <jwt>`. **Cookies are never read**, which
+   is what makes the API immune to CSRF by construction — a cross-site request
+   cannot set a header.
+2. RS256 signature verified against the instance's JWKS.
+3. The claim policy in `api/_lib/claims.mjs`: subject, session id, issuer,
+   expiry, not-before, issued-at, freshness (a token older than five minutes is
+   refused even if it has not expired), authorized party, session status.
+4. The live Clerk user record — banned and locked accounts are turned away while
+   still holding a valid token, and the email must be verified.
+5. For `/api/admin` only: the session is confirmed still active with Clerk, and
+   the first factor must have been proved within the hour.
+
+All of it runs inside one wrapper, `secure()` in `api/_lib/http.ts`, which also
+does method allowlisting, rate limiting, body-size and content-type checks,
+security headers, uniform error shaping and one structured audit line per
+request. A new endpoint picks a policy rather than reimplementing one, and its
+handler cannot run before the checks have.
+
+```bash
+npm run check:auth    # 46 checks: forged, expired, replayed, mis-issued tokens
+```
+
+That suite runs in `npm run build`. It is not decoration — it caught a real hole
+in the first draft of the issuer check, where `clerk.accounts.dev.evil.com`
+passed a naive prefix match.
+
+Errors say `Not signed in` and nothing else, whatever went wrong. The specific
+reason goes to the log under a request id, because an error that distinguishes
+"expired" from "wrong origin" from "no such user" is a free oracle for whoever
+is probing.
+
+See `SETUP.md` for `CLERK_AUTHORIZED_PARTIES` and `CLERK_ISSUER`, and for an
+honest list of what this does *not* protect against.
+
+---
+
 ## Optional: sign-in and cross-device sync
 
 Without configuration the app runs in **local mode** — everything works, progress
@@ -174,8 +215,13 @@ src/
   components/          Header, Overview, DayPanel, Panels
 api/
   contests.ts          GET /api/contests — live rounds, fetched server-side
+  _lib/http.ts         the one guard every endpoint goes through
+  _lib/clerk.ts        token verification, ban/lock checks, admin step-up
+  _lib/claims.mjs      the session-token policy — pure, and tested
+  _lib/ratelimit.mjs   per-IP and per-user ceilings
   _lib/contest-sources.mjs  the three fetchers, shared with the CI script
 scripts/
+  check-auth.mjs       runs the auth policy against hostile input
   pool.py              the 503-problem curated pool
   gen_schedule.py      distributes the pool across 140 days
   fetch-contests.mjs   run by CI to refresh contests.json
