@@ -1,14 +1,6 @@
 {
-  "updatedAt": "2026-08-29T01:36:26.076Z",
+  "updatedAt": "2026-08-29T09:38:15.500Z",
   "contests": [
-    {
-      "id": "ac-ahc070",
-      "name": "13th Asprova Programming Contest（AtCoder Heuristic Contest 070）",
-      "platform": "AtCoder",
-      "startsAt": 1787983200000,
-      "durationMin": 240,
-      "url": "https://atcoder.jp/contests/ahc070"
-    },
     {
       "id": "ac-abc473",
       "name": "AtCoder Beginner Contest 473",
