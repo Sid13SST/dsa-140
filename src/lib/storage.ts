@@ -1,4 +1,5 @@
 import type { Progress } from '../types'
+import { isValidDay } from './dates'
 
 const KEY = 'dsa140:progress:v1'
 
@@ -16,6 +17,46 @@ export function saveLocal(p: Progress) {
     localStorage.setItem(KEY, JSON.stringify(p))
   } catch {
     // Storage can be full or blocked; progress stays in memory for this session.
+  }
+}
+
+/** True once any day has been logged — used to spot a pre-existing run. */
+export function hasSavedProgress(): boolean {
+  try {
+    const raw = localStorage.getItem(KEY)
+    if (!raw) return false
+    const parsed = JSON.parse(raw) as Progress
+    return Object.keys(parsed).length > 0
+  } catch {
+    return false
+  }
+}
+
+/* --------------------------- when day 1 was --------------------------- */
+
+const START_KEY = 'dsa140:start:v1'
+
+/**
+ * The day this browser's 140-day run begins.
+ *
+ * Written ONCE and then never moved: the schedule's dates, and therefore every
+ * progress key, hang off it. Re-deriving it on each load would silently
+ * re-date a run in progress and orphan everything already logged.
+ */
+export function loadStartDate(): string | null {
+  try {
+    const raw = localStorage.getItem(START_KEY)
+    return isValidDay(raw) ? raw : null
+  } catch {
+    return null
+  }
+}
+
+export function saveStartDate(day: string) {
+  try {
+    localStorage.setItem(START_KEY, day)
+  } catch {
+    // Storage blocked; the run re-resolves to the same day for this session.
   }
 }
 

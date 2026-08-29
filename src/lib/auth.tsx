@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react'
 import { useAuth as useClerkAuth, useClerk, useUser } from '@clerk/clerk-react'
 import { clerkConfigured, isAdminEmail } from './clerk'
+import { iso } from './dates'
 import { AUTH_ENABLED, PAYMENTS_ENABLED } from './flags'
 
 /**
@@ -21,6 +22,13 @@ export interface Me {
   hasPaid: boolean
   paidAt: string | null
   isAdmin: boolean
+  /**
+   * The local calendar day the account was created — the day you signed in for
+   * the first time. The 140-day run is dated from it, so it is a day string
+   * rather than an instant: which side of midnight you were on is the only
+   * part that matters.
+   */
+  signedUpOn: string | null
 }
 
 type Status = 'loading' | 'signed-out' | 'signed-in' | 'unconfigured'
@@ -80,6 +88,7 @@ function useClerkBackedAuth(): AuthValue {
       hasPaid: PAYMENTS_ENABLED ? !!paid.hasPaid : true,
       paidAt: paid.paidAt ?? null,
       isAdmin: isAdminEmail(email),
+      signedUpOn: user.createdAt ? iso(new Date(user.createdAt)) : null,
     }
   }, [isSignedIn, user])
 

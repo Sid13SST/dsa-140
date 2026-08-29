@@ -1,5 +1,6 @@
 import type { Day, Progress } from '../types'
 import { computeAnalytics } from '../lib/analytics'
+import { fmtDay, fmtShort } from '../lib/dates'
 
 interface StatsProps {
   schedule: Day[]
@@ -91,6 +92,11 @@ export function ConsistencyGrid({
   const weeks: Day[][] = []
   for (let i = 0; i < schedule.length; i += 7) weeks.push(schedule.slice(i, i + 7))
 
+  // Dated from the run's own day 1, so this reads correctly whenever it began.
+  const first = schedule[0]
+  const last = schedule[schedule.length - 1]
+  const checkpoint = schedule.find((d) => d.isCheckpoint)
+
   const cellClass = (d: Day) => {
     const st = progress[d.date]
     if (st?.status === 'done') {
@@ -109,7 +115,9 @@ export function ConsistencyGrid({
   return (
     <div className={`card p-3 flex flex-col ${className}`}>
       <div className="flex items-baseline justify-between mb-2">
-        <span className="eyebrow">140-day run · 22 Aug 2026 → 8 Jan 2027</span>
+        <span className="eyebrow">
+          {schedule.length}-day run · {fmtDay(first.date)} → {fmtDay(last.date)}
+        </span>
         <span className="font-mono text-[10px] text-muted">
           solved · partial · missed · absent
         </span>
@@ -143,10 +151,12 @@ export function ConsistencyGrid({
         <Legend className="bg-warn/15 border-warn/40" label="missed" />
         <Legend className="bg-miss/25 border-miss/40" label="absent" />
         <Legend className="bg-surface border-ink" label="today" />
-        <span className="flex items-center gap-1">
-          <span className="w-3 h-3 rounded-[3px] border border-rule ring-1 ring-warn inline-block" />
-          31 Dec checkpoint
-        </span>
+        {checkpoint && (
+          <span className="flex items-center gap-1">
+            <span className="w-3 h-3 rounded-[3px] border border-rule ring-1 ring-warn inline-block" />
+            {fmtShort(checkpoint.date)} checkpoint
+          </span>
+        )}
       </div>
     </div>
   )

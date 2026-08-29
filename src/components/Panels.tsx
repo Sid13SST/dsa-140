@@ -213,8 +213,9 @@ export function ContestPanel({
   const shown =
     platformFilter === 'all' ? contests : contests.filter((c) => c.platform === platformFilter)
 
-  // Codeforces/CodeChef/AtCoder come from a file a scheduled job rewrites every
-  // 6h, so surface its age — silently stale data is the failure mode here.
+  // When /api/contests answers, this is the moment it was fetched. When it does
+  // not, it is the age of the committed fallback file — and a fallback quietly
+  // going stale is the failure mode worth showing, so surface the age either way.
   const ageMs = updatedAt === null ? null : now - updatedAt
   const stale = ageMs !== null && ageMs > 12 * 60 * 60 * 1000
 
@@ -281,7 +282,7 @@ export function ContestPanel({
       {!loading && ageMs !== null && (
         <p className={`font-mono text-[10px] mb-1.5 ${stale ? 'text-warn' : 'text-muted'}`}>
           list updated {formatAge(ageMs)} ago
-          {stale && ' — the refresh job may not have run'}
+          {stale && ' — this build is serving the cached list'}
         </p>
       )}
 

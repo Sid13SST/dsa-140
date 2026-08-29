@@ -1,33 +1,67 @@
 import type { Contest } from '../types'
 
 /**
- * Codeforces and CodeChef both publish JSON contest lists but neither sends
- * CORS headers, so they're fetched server-side (see fetch-contests.mjs) into
- * `public/contests.json`. LeetCode's GraphQL endpoint blocks browser requests
- * entirely, so its contests are derived from the fixed recurring schedule
- * instead and flagged with `computed: true` in the UI.
+ * Where the contest list comes from, in the order it is tried.
+ *
+ *   1. `/api/contests` — a serverless function that fetches all three sources
+ *      per request. This is the only path that is always current, because it
+ *      does not go through a git commit.
+ *   2. `public/contests.json` — a snapshot a scheduled Action commits on the
+ *      default branch. Correct on a deploy from that branch, and progressively
+ *      wrong on any other, which is why it is now the fallback rather than the
+ *      primary source.
+ *   3. A direct browser fetch of Codeforces. Only Codeforces sends
+ *      `Access-Control-Allow-Origin`; CodeChef and AtCoder do not, so this can
+ *      never be more than a partial repair.
+ *
+ * LeetCode is in none of them — its GraphQL endpoint blocks browser requests
+ * outright — so its rounds are derived from the fixed recurring schedule and
+ * flagged with `computed: true` in the UI.
  */
 
 const CF_API = 'https://codeforces.com/api/contest.list?gym=false'
 
-/**
- * Codeforces does not send CORS headers, so a browser fetch to their API fails.
- * A scheduled GitHub Action refreshes `public/contests.json` server-side every
- * few hours; we read that first and only try the live API as a fallback (which
- * works in environments where CORS isn't enforced, e.g. a proxied deployment).
- */
-async function fromStaticFile(): Promise<{ contests: Contest[]; updatedAt: number | null }> {
-  const res = await fetch(`${import.meta.env.BASE_URL}contests.json`, { cache: 'no-cache' })
-  if (!res.ok) throw new Error(`contests.json returned ${res.status}`)
-  const json = await res.json()
-  if (!Array.isArray(json.contests)) throw new Error('contests.json is malformed')
-  const stamp = json.updatedAt ? Date.parse(json.updatedAt) : NaN
+/** Shape of both /api/contests and public/contests.json. */
+interface ContestFeed {
+  contests: Contest[]
+  updatedAt: number | null
+}
+
+function parseFeed(json: unknown, label: string): ContestFeed {
+  const body = json as { contests?: unknown; updatedAt?: unknown }
+  if (!Array.isArray(body.contests)) throw new Error(`${label} is malformed`)
+  const stamp = typeof body.updatedAt === 'string' ? Date.parse(body.updatedAt) : NaN
   return {
-    contests: json.contests as Contest[],
+    contests: body.contests as Contest[],
     updatedAt: Number.isFinite(stamp) ? stamp : null,
   }
 }
 
+/**
+ * The live server-side route.
+ *
+ * Absent on GitHub Pages, which serves static files only — a 404 there is
+ * expected and simply means the static file is the answer.
+ */
+async function fromApi(): Promise<ContestFeed> {
+  const res = await fetch(`${import.meta.env.BASE_URL}api/contests`, { cache: 'no-store' })
+  if (!res.ok) throw new Error(`/api/contests returned ${res.status}`)
+  return parseFeed(await res.json(), '/api/contests')
+}
+
+/** The committed snapshot, refreshed on the default branch by a scheduled job. */
+async function fromStaticFile(): Promise<ContestFeed> {
+  const res = await fetch(`${import.meta.env.BASE_URL}contests.json`, { cache: 'no-cache' })
+  if (!res.ok) throw new Error(`contests.json returned ${res.status}`)
+  return parseFeed(await res.json(), 'contests.json')
+}
+
+/**
+ * The one source a browser may call directly — Codeforces sends
+ * `Access-Control-Allow-Origin: *`. There is deliberately no CodeChef or
+ * AtCoder twin here: both answer a cross-origin request with no CORS header,
+ * so a client-side version could only ever fail. They come from the server.
+ */
 export async function fetchCodeforces(): Promise<Contest[]> {
   const res = await fetch(CF_API)
   if (!res.ok) throw new Error(`Codeforces returned ${res.status}`)
@@ -45,29 +79,6 @@ export async function fetchCodeforces(): Promise<Contest[]> {
         startsAt: c.startTimeSeconds * 1000,
         durationMin: Math.round((c.durationSeconds ?? 7200) / 60),
         url: `https://codeforces.com/contest/${c.id}`,
-      }),
-    )
-    .sort((a: Contest, b: Contest) => a.startsAt - b.startsAt)
-}
-
-const CODECHEF_API = 'https://www.codechef.com/api/list/contests/all'
-
-export async function fetchCodeChef(): Promise<Contest[]> {
-  const res = await fetch(CODECHEF_API)
-  if (!res.ok) throw new Error(`CodeChef returned ${res.status}`)
-  const json = await res.json()
-  if (!Array.isArray(json.future_contests)) {
-    throw new Error('CodeChef returned an unexpected response.')
-  }
-  return json.future_contests
-    .map(
-      (c: any): Contest => ({
-        id: `cc-${c.contest_code}`,
-        name: c.contest_name,
-        platform: 'CodeChef',
-        startsAt: new Date(c.contest_start_date_iso).getTime(),
-        durationMin: Math.round(Number(c.contest_duration ?? 180)),
-        url: `https://www.codechef.com/${c.contest_code}`,
       }),
     )
     .sort((a: Contest, b: Contest) => a.startsAt - b.startsAt)
@@ -134,11 +145,11 @@ export function leetcodeUpcoming(from = Date.now(), count = 4): Contest[] {
 }
 
 /**
- * How old the static file may get before the client stops trusting it alone.
+ * How old the FALLBACK file may get before the client stops trusting it alone.
  *
- * The scheduled job aims for every 6 hours, but GitHub delays and sometimes
- * drops cron runs under load — so "the file loaded fine" is not the same as
- * "the file is current".
+ * Only reached when /api/contests is unavailable. The scheduled job aims for
+ * every few hours, but GitHub delays and sometimes drops cron runs under load —
+ * so "the file loaded fine" is not the same as "the file is current".
  */
 const STALE_AFTER_MS = 6 * 60 * 60 * 1000
 
@@ -160,61 +171,73 @@ function mergeContests(base: Contest[], extra: Contest[]): Contest[] {
 export async function loadAllContests(limit = 14): Promise<{
   contests: Contest[]
   contestError: string | null
-  /** When the server-side job last refreshed contests.json, if known. */
+  /** When the list currently shown was assembled, if known. */
   updatedAt: number | null
 }> {
   const lc = leetcodeUpcoming()
   let fetched: Contest[] = []
   let contestError: string | null = null
   let updatedAt: number | null = null
-  let fileOk = false
-
-  try {
-    const file = await fromStaticFile()
-    fetched = file.contests
-    updatedAt = file.updatedAt
-    fileOk = true
-  } catch {
-    fileOk = false
-  }
 
   /*
-   * Top up from the live APIs when the file is MISSING **or** STALE.
-   *
-   * The previous version only fell back when the fetch threw, so a file that
-   * loaded successfully but had not been refreshed for a day was used as-is:
-   * the panel warned that it was old and then never improved, no matter how
-   * many times it refreshed. Stale-but-readable is the common case, because it
-   * is what a skipped cron run produces — so it is the case worth handling.
-   *
-   * AtCoder is scraped from HTML server-side and cannot be fetched cross-origin,
-   * so it is the one platform that genuinely depends on the job running.
+   * The live route first. It fetches all three sources per request, so when it
+   * answers there is nothing to top up and nothing that can go stale — a build
+   * from any branch gets the same current list.
    */
-  const age = updatedAt === null ? Infinity : Date.now() - updatedAt
-  const needsTopUp = !fileOk || age > STALE_AFTER_MS
+  let live = false
+  try {
+    const api = await fromApi()
+    fetched = api.contests
+    updatedAt = api.updatedAt
+    live = true
+  } catch {
+    live = false
+  }
 
-  if (needsTopUp) {
-    const [cf, cc] = await Promise.allSettled([fetchCodeforces(), fetchCodeChef()])
-    if (cf.status === 'fulfilled') fetched = mergeContests(fetched, cf.value)
-    if (cc.status === 'fulfilled') fetched = mergeContests(fetched, cc.value)
-
-    const failed = [
-      cf.status === 'rejected' && 'Codeforces',
-      cc.status === 'rejected' && 'CodeChef',
-      // Never available live: it needs the server-side HTML scrape.
-      !fileOk && 'AtCoder',
-    ].filter(Boolean) as string[]
-
-    if (!fileOk) {
-      contestError =
-        `${failed.join(', ')} rounds aren't loading right now. The scheduled job refreshes ` +
-        'them every 6 hours — until then, check those sites directly.'
-    } else if (failed.length) {
-      contestError =
-        `The scheduled refresh looks overdue, and a live top-up for ${failed.join(', ')} ` +
-        'also failed. Showing what is in the cached list.'
+  if (!live) {
+    /*
+     * No function on this host (GitHub Pages) or it could not reach the
+     * sources. Fall back to the committed snapshot, and top up from the one
+     * source a browser is allowed to call when that snapshot is missing or old.
+     *
+     * Being explicit about the limit: only Codeforces sends CORS headers, so
+     * CodeChef and AtCoder cannot be repaired from here at all. That is the
+     * whole reason /api/contests exists rather than more client-side retries.
+     */
+    let fileOk = false
+    try {
+      const file = await fromStaticFile()
+      fetched = file.contests
+      updatedAt = file.updatedAt
+      fileOk = true
+    } catch {
+      fileOk = false
     }
-    // File was stale but the live top-up worked: no error worth showing.
+
+    const age = updatedAt === null ? Infinity : Date.now() - updatedAt
+    if (!fileOk || age > STALE_AFTER_MS) {
+      const cf = await fetchCodeforces().catch(() => null)
+      if (cf) fetched = mergeContests(fetched, cf)
+
+      const missing = [
+        !cf && 'Codeforces',
+        // Neither can be fetched from a browser at all; they need the server.
+        !fileOk && 'CodeChef',
+        !fileOk && 'AtCoder',
+      ].filter(Boolean) as string[]
+
+      if (!fileOk) {
+        contestError =
+          `${missing.join(', ')} rounds aren't loading. This build has no /api/contests ` +
+          'and the cached list is unavailable — check those sites directly for now.'
+      } else if (missing.length) {
+        contestError =
+          `The cached list is over ${Math.round(STALE_AFTER_MS / 3_600_000)}h old and a live ` +
+          `top-up for ${missing.join(', ')} also failed. Showing what was cached.`
+      }
+      // Otherwise the cached list was old and Codeforces topped it up live,
+      // which is a repair, not something to warn about.
+    }
   }
 
   // Drop anything already finished, then keep the near horizon. Callers
