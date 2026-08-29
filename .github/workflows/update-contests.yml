@@ -1,3 +1,12 @@
+# Keeps public/contests.json — the FALLBACK list — current.
+#
+# The live path is /api/contests, which fetches the sources per request, so the
+# dashboard no longer depends on this job having run. This file is what hosts
+# that cannot run a function (GitHub Pages) serve, and it is committed on the
+# default branch only: a build from any other branch carries whatever snapshot
+# was committed when that branch was cut. That branch coupling is why the panel
+# looked stale while this job was running perfectly, and why the client now
+# treats the file as a backstop rather than the source of truth.
 name: Refresh contest list
 
 on:
