@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
 import type { Theme } from '../lib/theme'
+import { fmtDay } from '../lib/dates'
 
 interface Props {
   dayNumber: number | null
   totalDays: number
+  /** Day 1 of this run — the day you signed in, not a date fixed in the plan. */
+  startsOn: string
   theme: Theme
   onToggleTheme: () => void
 }
@@ -62,7 +65,7 @@ function Clock() {
   )
 }
 
-export default function Header({ dayNumber, totalDays, theme, onToggleTheme }: Props) {
+export default function Header({ dayNumber, totalDays, startsOn, theme, onToggleTheme }: Props) {
   const pct = dayNumber === null ? 0 : Math.round((dayNumber / totalDays) * 100)
 
   return (
@@ -78,7 +81,7 @@ export default function Header({ dayNumber, totalDays, theme, onToggleTheme }: P
             </h1>
             <div className="eyebrow mt-1">
               {dayNumber === null ? (
-                <>schedule starts 22 Aug 2026</>
+                <>schedule starts {fmtDay(startsOn)}</>
               ) : (
                 <>
                   day <span className="text-ink font-bold">{dayNumber}</span> of {totalDays}

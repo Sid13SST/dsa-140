@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { SCHEDULE, TOTAL_DAYS } from './data/schedule'
+import { TOTAL_DAYS } from './data/schedule'
 import type { DayState, Progress } from './types'
 import { emptyDay } from './types'
 import type { Contest } from './types'
@@ -25,6 +25,9 @@ import {
 } from './lib/storage'
 import type { LabProgress, SdAttempt, SdProgress, SdQuizProgress } from './lib/storage'
 import { hasFinished, loadAllContests } from './lib/contests'
+import { fmtDay, fmtShort, iso } from './lib/dates'
+import { checkpointDay, resolveToday, shiftSchedule, useRunStart } from './lib/runStart'
+import { useAuth } from './lib/auth'
 import { useNow } from './lib/useNow'
 import { useTheme } from './lib/theme'
 import Header from './components/Header'
@@ -50,16 +53,6 @@ import { CalendarView, ContestPanel, TopicProgress } from './components/Panels'
 type DsaTab = 'today' | 'progress' | 'analytics' | 'learn'
 type RailTab = 'track' | 'practice' | 'interview'
 
-const iso = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-
-/** The scheduled day for today, or the nearest in-range day if today is outside the plan. */
-function resolveToday(todayIso: string) {
-  if (SCHEDULE.some((d) => d.date === todayIso)) return todayIso
-  if (todayIso < SCHEDULE[0].date) return SCHEDULE[0].date
-  return SCHEDULE[SCHEDULE.length - 1].date
-}
-
 /** How often the browser re-reads contests.json; the server job refreshes it every 6h. */
 const CONTEST_REFRESH_MS = 30 * 60 * 1000
 
@@ -69,8 +62,18 @@ export default function App() {
   const now = useNow()
   const todayIso = useMemo(() => iso(new Date(now)), [now])
 
+  /*
+   * Day 1 is the day you signed in, not a date baked into the generated plan.
+   * Resolved once and frozen — see runStart.ts. With accounts switched off
+   * there is nobody to ask, so it is the day this browser first opened the
+   * dashboard.
+   */
+  const { me } = useAuth()
+  const startDate = useRunStart(me?.signedUpOn ?? null, todayIso)
+  const schedule = useMemo(() => shiftSchedule(startDate), [startDate])
+
   const [progress, setProgress] = useState<Progress>(() => loadLocal())
-  const [selected, setSelected] = useState(() => resolveToday(iso(new Date())))
+  const [selected, setSelected] = useState(() => resolveToday(schedule, iso(new Date())))
   const [generatingPdf, setGeneratingPdf] = useState(false)
   const [section, setSection] = useState<Section>('home')
   const [dsaTab, setDsaTab] = useState<DsaTab>('today')
@@ -239,8 +242,8 @@ export default function App() {
   }, [])
 
   const selectedDay = useMemo(
-    () => SCHEDULE.find((d) => d.date === selected) ?? SCHEDULE[0],
-    [selected],
+    () => schedule.find((d) => d.date === selected) ?? schedule[0],
+    [schedule, selected],
   )
 
   /** Contests starting on the selected day, in start order, for its checklist. */
@@ -254,22 +257,25 @@ export default function App() {
 
   const jump = useCallback(
     (delta: number) => {
-      const i = SCHEDULE.findIndex((d) => d.date === selected)
-      const next = SCHEDULE[Math.min(SCHEDULE.length - 1, Math.max(0, i + delta))]
+      const i = schedule.findIndex((d) => d.date === selected)
+      const next = schedule[Math.min(schedule.length - 1, Math.max(0, i + delta))]
       setSelected(next.date)
     },
-    [selected],
+    [schedule, selected],
   )
 
   const dayNumber = useMemo(() => {
-    const d = SCHEDULE.find((x) => x.date === todayIso)
+    const d = schedule.find((x) => x.date === todayIso)
     return d?.day ?? null
-  }, [todayIso])
+  }, [schedule, todayIso])
+
+  /** The interview-ready milestone, wherever the run's start puts it. */
+  const checkpoint = useMemo(() => checkpointDay(schedule), [schedule])
 
   /* ---- backlog: unsolved problems from days already past ---- */
   const backlog = useMemo(() => {
     const out: { slug: string; title: string; date: string; difficulty: string }[] = []
-    for (const d of SCHEDULE) {
+    for (const d of schedule) {
       if (d.date >= todayIso) break
       const st = progress[d.date]
       if (st?.status === 'absent') continue
@@ -281,7 +287,7 @@ export default function App() {
       }
     }
     return out
-  }, [progress, todayIso])
+  }, [schedule, progress, todayIso])
 
   const downloadBackup = () => {
     const blob = new Blob([exportJSON(progress)], { type: 'application/json' })
@@ -298,7 +304,7 @@ export default function App() {
       // jsPDF + autotable are only needed here, so they're code-split into a
       // chunk that loads on demand instead of bloating the initial page load.
       const { generatePdfReport } = await import('./lib/pdfReport')
-      generatePdfReport(SCHEDULE, progress, todayIso)
+      generatePdfReport(schedule, progress, todayIso)
     } finally {
       setGeneratingPdf(false)
     }
@@ -347,6 +353,7 @@ export default function App() {
       <Header
         dayNumber={dayNumber}
         totalDays={TOTAL_DAYS}
+        startsOn={schedule[0].date}
         theme={theme.theme}
         onToggleTheme={theme.toggle}
       />
@@ -365,7 +372,7 @@ export default function App() {
         <div className="flex-1 min-w-0 space-y-3 mt-3 lg:mt-0">
           {section === 'home' && (
             <Home
-              schedule={SCHEDULE}
+              schedule={schedule}
               progress={progress}
               todayIso={todayIso}
               sdProgress={sdProgress}
@@ -390,7 +397,7 @@ export default function App() {
 
           {section === 'dsa' && (
             <>
-              <StatsBar schedule={SCHEDULE} progress={progress} todayIso={todayIso} />
+              <StatsBar schedule={schedule} progress={progress} todayIso={todayIso} />
               <Tabs
                 tabs={[
                   { id: 'today' as const, label: 'Today' },
@@ -436,7 +443,7 @@ export default function App() {
         {dsaTab === 'progress' && (
           <div className="space-y-3">
             <ConsistencyGrid
-              schedule={SCHEDULE}
+              schedule={schedule}
               progress={progress}
               todayIso={todayIso}
               selected={selected}
@@ -448,7 +455,7 @@ export default function App() {
             <div className="grid lg:grid-cols-3 gap-3 lg:h-[30rem] lg:auto-rows-fr">
               <div className="min-w-0">
                 <CalendarView
-                  schedule={SCHEDULE}
+                  schedule={schedule}
                   progress={progress}
                   todayIso={todayIso}
                   selected={selected}
@@ -457,7 +464,7 @@ export default function App() {
                 />
               </div>
               <div className="min-w-0">
-                <TopicProgress schedule={SCHEDULE} progress={progress} />
+                <TopicProgress schedule={schedule} progress={progress} />
               </div>
               <div className="space-y-3 min-w-0">{backlogPanel}</div>
             </div>
@@ -466,7 +473,7 @@ export default function App() {
 
         {dsaTab === 'analytics' && (
           <div className="space-y-3">
-            <Analytics schedule={SCHEDULE} progress={progress} todayIso={todayIso} />
+            <Analytics schedule={schedule} progress={progress} todayIso={todayIso} />
 
             <div className="card p-3">
               <span className="eyebrow">your data</span>
@@ -504,7 +511,7 @@ export default function App() {
           </div>
         )}
 
-        {dsaTab === 'learn' && <ResourceLibrary schedule={SCHEDULE} />}
+        {dsaTab === 'learn' && <ResourceLibrary schedule={schedule} />}
             </>
           )}
 
@@ -555,7 +562,9 @@ export default function App() {
           )}
 
           <footer className="text-center text-[11px] text-muted py-3">
-            140 days · 22 Aug 2026 → 8 Jan 2027 · interview-ready checkpoint 31 Dec
+            {TOTAL_DAYS} days · {fmtDay(schedule[0].date)} →{' '}
+            {fmtDay(schedule[schedule.length - 1].date)}
+            {checkpoint && <> · interview-ready checkpoint {fmtShort(checkpoint.date)}</>}
           </footer>
         </div>
       </main>

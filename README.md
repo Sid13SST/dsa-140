@@ -47,6 +47,14 @@ Difficulty mix: 161 Easy · 311 Medium · 59 Hard.
 Sundays are lighter (contest days). Every 14th day is a revision day. The last
 four days are re-solves of 28 high-frequency problems rather than new material.
 
+**Day 1 is the day you sign in**, not a date baked into the generated plan. The
+schedule ships dated from a fixed start; on first load it is re-dated so day 1
+is your first day, and that start is then frozen (progress is keyed by date, so
+a start that moved would orphan your log). Sunday contest days and the LeetCode
+Weekly/Biweekly markers are recomputed against the real calendar, so they still
+land on actual Sundays and Saturdays. A run started before this change keeps its
+original dates.
+
 ### Regenerating the schedule
 
 The schedule is generated, not hand-written. To change phase lengths, problems
@@ -74,11 +82,22 @@ come back inconclusive — re-run later to confirm those.
 
 ## Contests
 
-**Codeforces** rounds are fetched by a scheduled GitHub Action
-(`.github/workflows/update-contests.yml`) every 6 hours and committed to
-`public/contests.json`. This is deliberate: the Codeforces API sends no CORS
-headers, so a browser can't call it directly. Fetching server-side in CI sidesteps
-that entirely and keeps the deployed site static.
+**Codeforces, CodeChef and AtCoder** rounds are fetched **server-side**, because
+they have to be: of the three, only Codeforces sends CORS headers, so a browser
+calling CodeChef or AtCoder directly gets nothing. There are two server paths,
+in this order:
+
+1. **`/api/contests`** — a serverless function (`api/contests.ts`) that fetches
+   all three per request, cached 15 minutes at the edge. Always current, on any
+   branch or preview deploy. Needs a host that runs functions (Vercel).
+2. **`public/contests.json`** — a snapshot committed by a scheduled Action
+   (`.github/workflows/update-contests.yml`) every 3 hours, for hosts that serve
+   static files only (GitHub Pages). The file is only committed on the default
+   branch, so a build from any other branch carries the snapshot from when that
+   branch was cut — which is why it is the fallback and not the source of truth.
+
+Both read the same fetchers in `api/_lib/contest-sources.mjs`. If neither
+answers, the client tops up from Codeforces alone, which is all CORS allows.
 
 **LeetCode** contests are computed from the fixed recurring schedule — Weekly
 every Sunday 08:00 IST, Biweekly on alternate Saturdays 20:00 IST — because
@@ -148,10 +167,14 @@ output directory `dist`.
 ```
 src/
   data/schedule.ts     generated — 140 days, 531 problem entries
-  lib/contests.ts      Codeforces fetch + LeetCode recurring schedule
+  lib/contests.ts      contest loading (API → file → live) + LeetCode schedule
+  lib/runStart.ts      pins day 1 to your sign-in day and re-dates the plan
   lib/storage.ts       local storage read/write, export/import
-  lib/supabase.ts      auth + cloud sync (no-ops in local mode)
+  lib/auth.tsx         Clerk-backed sign-in (no-ops when auth is off)
   components/          Header, Overview, DayPanel, Panels
+api/
+  contests.ts          GET /api/contests — live rounds, fetched server-side
+  _lib/contest-sources.mjs  the three fetchers, shared with the CI script
 scripts/
   pool.py              the 503-problem curated pool
   gen_schedule.py      distributes the pool across 140 days
