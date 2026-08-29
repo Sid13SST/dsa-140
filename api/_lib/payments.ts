@@ -1,4 +1,4 @@
-import { clerk } from './clerk'
+import { clerk } from './clerk.js'
 
 /**
  * Payment state, stored on the Clerk user rather than in a database.

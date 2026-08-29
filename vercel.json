@@ -11,21 +11,17 @@
   ],
   "headers": [
     {
-      "//": "Applies to documents and assets. The api/ responses set their own headers in api/_lib/errors.ts, because they need no-store and this must not fight that.",
       "source": "/((?!api/).*)",
       "headers": [
         {
-          "//": "Two years, subdomains included. HSTS is what stops the first request of a session being downgraded to http and read in transit.",
           "key": "Strict-Transport-Security",
           "value": "max-age=63072000; includeSubDomains; preload"
         },
         {
-          "//": "Stops a response being reinterpreted as a script because a sniffing browser liked the bytes.",
           "key": "X-Content-Type-Options",
           "value": "nosniff"
         },
         {
-          "//": "Nothing here should ever be framed; clickjacking a sign-in page is the classic use of one that can be.",
           "key": "X-Frame-Options",
           "value": "DENY"
         },
@@ -34,12 +30,10 @@
           "value": "strict-origin-when-cross-origin"
         },
         {
-          "//": "Deny the powerful APIs this app has no use for, so a compromised dependency cannot reach for them.",
           "key": "Permissions-Policy",
           "value": "camera=(), microphone=(), geolocation=(), usb=(), magnetometer=(), payment=(self)"
         },
         {
-          "//": "REPORT-ONLY on purpose: a CSP that blocks Clerk or Razorpay would white-screen sign-in and checkout, and a security header that takes the site down gets deleted rather than fixed. Load every route once, read the console for violations, widen this list to cover the legitimate ones, then rename the header to Content-Security-Policy to enforce it. Production Clerk instances serve from clerk.<your-domain>, so add that origin before flipping.",
           "key": "Content-Security-Policy-Report-Only",
           "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://*.clerk.accounts.dev https://*.clerk.com https://checkout.razorpay.com https://*.razorpay.com https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://img.clerk.com https://images.clerk.dev https://*.razorpay.com; connect-src 'self' https://*.clerk.accounts.dev https://*.clerk.com https://api.razorpay.com https://lumberjack.razorpay.com https://codeforces.com https://generativelanguage.googleapis.com; frame-src https://*.razorpay.com https://*.clerk.accounts.dev https://challenges.cloudflare.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
         }

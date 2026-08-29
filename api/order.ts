@@ -1,7 +1,7 @@
-import { CURRENCY, PRICE_PAISE, RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } from './_lib/env'
-import { clerk } from './_lib/clerk'
-import { HttpError } from './_lib/errors'
-import { secure } from './_lib/http'
+import { CURRENCY, PRICE_PAISE, RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } from './_lib/env.js'
+import { clerk } from './_lib/clerk.js'
+import { HttpError } from './_lib/errors.js'
+import { secure } from './_lib/http.js'
 
 /**
  * POST /api/order — create a Razorpay order for the signed-in user.

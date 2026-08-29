@@ -1,8 +1,8 @@
 import crypto from 'node:crypto'
-import { RAZORPAY_KEY_SECRET } from './_lib/env'
-import { HttpError } from './_lib/errors'
-import { secure } from './_lib/http'
-import { findUserByOrder, settlePayment } from './_lib/payments'
+import { RAZORPAY_KEY_SECRET } from './_lib/env.js'
+import { HttpError } from './_lib/errors.js'
+import { secure } from './_lib/http.js'
+import { findUserByOrder, settlePayment } from './_lib/payments.js'
 
 /**
  * POST /api/verify — confirm a payment the browser just completed.

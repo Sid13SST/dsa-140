@@ -1,5 +1,5 @@
 import { fetchAllContests } from './_lib/contest-sources.mjs'
-import { secure } from './_lib/http'
+import { secure } from './_lib/http.js'
 
 /**
  * GET /api/contests — the upcoming rounds, fetched live, server-side.

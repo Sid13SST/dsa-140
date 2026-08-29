@@ -1,6 +1,6 @@
 import crypto from 'node:crypto'
-import { applySecurityHeaders, fail, HttpError } from './errors'
-import { requireUser, type AuthedUser } from './clerk'
+import { applySecurityHeaders, fail, HttpError } from './errors.js'
+import { requireUser, type AuthedUser } from './clerk.js'
 import { clientIp, hit } from './ratelimit.mjs'
 
 /**
