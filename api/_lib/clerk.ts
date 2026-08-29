@@ -135,10 +135,22 @@ export async function requireUser(
 
   const parties = authorizedParties()
 
+  /*
+   * Read the key BEFORE the try, not as an argument inside it.
+   *
+   * Evaluated in the argument list, a missing CLERK_SECRET_KEY throws where the
+   * catch below turns everything into 401 "Not signed in" — so a server with no
+   * key configured tells every user their session is bad, and you go looking at
+   * Clerk, at token lifetimes, at the azp list, at anything except the one
+   * environment variable that is actually missing. A misconfigured server is a
+   * 500 and says so.
+   */
+  const key = secretKey()
+
   let claims: SessionClaims
   try {
     claims = (await verifyToken(token, {
-      secretKey: secretKey(),
+      secretKey: key,
       // Checked by Clerk AND again in our policy: this one rejects the token
       // before a network call, ours rejects it if the library's behaviour ever
       // changes underneath us.
