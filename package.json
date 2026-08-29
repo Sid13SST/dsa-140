@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/lint-workflows.cjs && tsc -b && tsc --noEmit -p tsconfig.api.json && vite build",
+    "build": "node scripts/lint-workflows.cjs && node scripts/check-auth.mjs && tsc -b && tsc --noEmit -p tsconfig.api.json && vite build",
     "preview": "vite preview",
     "check:links": "node scripts/check-links.mjs",
     "check:api": "tsc --noEmit -p tsconfig.api.json",
+    "check:auth": "node scripts/check-auth.mjs",
     "check:workflows": "node scripts/lint-workflows.cjs"
   },
   "dependencies": {

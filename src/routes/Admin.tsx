@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { apiFetch, useAuth } from '../lib/auth'
+import { apiFetch, AuthExpiredError, useAuth } from '../lib/auth'
 import { PAYMENTS_ENABLED } from '../lib/flags'
 
 interface AdminUser {
@@ -67,6 +67,7 @@ export default function Admin() {
   const [data, setData] = useState<AdminData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [expired, setExpired] = useState(false)
 
   /**
    * The admin check runs on the server, in /api/admin, against Clerk's own user
@@ -79,6 +80,18 @@ export default function Admin() {
     try {
       setData(await apiFetch<AdminData>('/api/admin', getToken))
     } catch (e) {
+      /*
+       * The server rejected the session itself — revoked from another device,
+       * or the first factor is now too old for this surface. Retrying with the
+       * same session cannot succeed, so stop drawing an admin console and send
+       * them back through sign-in rather than showing a stale one with an
+       * error pinned to it.
+       */
+      if (e instanceof AuthExpiredError) {
+        setExpired(true)
+        setData(null)
+        return
+      }
       setError(e instanceof Error ? e.message : 'Could not load admin data')
       setData(null)
     } finally {
@@ -97,7 +110,7 @@ export default function Admin() {
   )
 
   if (status === 'loading') return <Centered>Checking your account…</Centered>
-  if (status !== 'signed-in') return <Navigate to="/signin" replace />
+  if (status !== 'signed-in' || expired) return <Navigate to="/signin" replace />
   // Belt and braces: the endpoint is the real gate, this avoids a pointless render.
   if (me && !me.isAdmin) return <Navigate to="/app" replace />
 

@@ -1,5 +1,7 @@
 import { CURRENCY, PRICE_PAISE, RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } from './_lib/env'
-import { clerk, fail, HttpError, requireUser } from './_lib/clerk'
+import { clerk } from './_lib/clerk'
+import { HttpError } from './_lib/errors'
+import { secure } from './_lib/http'
 
 /**
  * POST /api/order — create a Razorpay order for the signed-in user.
@@ -8,12 +10,20 @@ import { clerk, fail, HttpError, requireUser } from './_lib/clerk'
  * its own price, the paywall would be a suggestion. The order is recorded
  * before the user ever reaches Razorpay, so a payment that arrives by webhook
  * can always be matched back to a person.
+ *
+ * Rate limited hard per user: creating orders costs a call to Razorpay and
+ * writes to the user record, and nobody legitimately needs a dozen a minute.
  */
-export default async function handler(req: any, res: any) {
-  try {
-    if (req.method !== 'POST') throw new HttpError(405, 'Use POST')
-
-    const user = await requireUser(req)
+export default secure(
+  {
+    name: 'order',
+    methods: ['POST'],
+    auth: 'user',
+    requireJson: true,
+    rateLimit: { limit: 20 },
+    userRateLimit: { limit: 6 },
+  },
+  async (_req, res, { user }) => {
     const client = clerk()
 
     // Already paid? Do not take money twice.
@@ -66,7 +76,5 @@ export default async function handler(req: any, res: any) {
       currency: order.currency,
       keyId: RAZORPAY_KEY_ID(),
     })
-  } catch (e) {
-    fail(res, e)
-  }
-}
+  },
+)

@@ -112,11 +112,31 @@ function useClerkBackedAuth(): AuthValue {
 export const useAuth: () => AuthValue =
   AUTH_ENABLED && clerkConfigured ? useClerkBackedAuth : useDisabledAuth
 
+/** Thrown when the server says the session is no longer good. */
+export class AuthExpiredError extends Error {
+  constructor(message = 'Your session has expired. Sign in again.') {
+    super(message)
+    this.name = 'AuthExpiredError'
+  }
+}
+
+/** How long any call to our own API may take before it is abandoned. */
+const API_TIMEOUT_MS = 15_000
+
 /**
  * Call one of our serverless functions with the caller's session attached.
  *
- * The token is a short-lived Clerk JWT. The server verifies it against Clerk's
- * public keys, so a forged or expired one is rejected before any handler runs.
+ * The token is a Clerk JWT with a ~60-second life, fetched fresh on every call
+ * rather than held anywhere: there is no copy of it in localStorage, in a
+ * module variable, or in a closure that outlives the request. Clerk keeps the
+ * session in its own httpOnly cookie, so the only thing this code ever touches
+ * is a short-lived token it immediately spends.
+ *
+ * `credentials: 'omit'` is deliberate and load-bearing. This API authenticates
+ * from the Authorization header ONLY, and sending no cookies makes that
+ * structural: a cross-site request cannot forge a header, so there is no CSRF
+ * surface to defend. It also means a stray cookie can never be mistaken for
+ * proof of anything.
  */
 export async function apiFetch<T>(
   path: string,
@@ -124,14 +144,36 @@ export async function apiFetch<T>(
   init: RequestInit = {},
 ): Promise<T> {
   const token = await getToken()
-  const res = await fetch(path, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(init.headers ?? {}),
-    },
-  })
+  if (!token) throw new AuthExpiredError('You are not signed in.')
+
+  // A hung request should fail as a request, not as a spinner that never stops.
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), API_TIMEOUT_MS)
+
+  let res: Response
+  try {
+    res = await fetch(path, {
+      ...init,
+      signal: controller.signal,
+      credentials: 'omit',
+      cache: 'no-store',
+      redirect: 'error',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        ...(init.headers ?? {}),
+        // Last, so nothing passed by a caller can overwrite the credential.
+        Authorization: `Bearer ${token}`,
+      },
+    })
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') {
+      throw new Error('That took too long. Check your connection and try again.')
+    }
+    throw e
+  } finally {
+    clearTimeout(timer)
+  }
 
   let body: unknown = null
   try {
@@ -147,7 +189,15 @@ export async function apiFetch<T>(
   }
 
   if (!res.ok) {
-    throw new Error((body as { error?: string })?.error || `Server returned ${res.status}`)
+    const message = (body as { error?: string })?.error || `Server returned ${res.status}`
+    /*
+     * 401 means the server rejected the session itself — expired, revoked,
+     * minted for another origin. It is not a failed request to retry with the
+     * same token; the caller has to send the user back through sign-in, so it
+     * gets its own type rather than being one more string to string-match.
+     */
+    if (res.status === 401) throw new AuthExpiredError(message)
+    throw new Error(message)
   }
   return body as T
 }

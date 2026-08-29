@@ -1,4 +1,5 @@
 import { fetchAllContests } from './_lib/contest-sources.mjs'
+import { secure } from './_lib/http'
 
 /**
  * GET /api/contests — the upcoming rounds, fetched live, server-side.
@@ -20,15 +21,14 @@ import { fetchAllContests } from './_lib/contest-sources.mjs'
  * a function (GitHub Pages), which is why the scheduled job is still wanted.
  *
  * No auth: this is public data from public endpoints, and requiring a session
- * would only mean the panel breaks whenever Clerk is switched off.
+ * would only mean the panel breaks whenever Clerk is switched off. It still
+ * goes through the same guard as everything else — an unauthenticated endpoint
+ * is exactly the one that needs a rate limit, because it is the one anybody
+ * can call, and each call reaches out to three third parties on our behalf.
  */
-export default async function handler(req: any, res: any) {
-  if (req.method !== 'GET' && req.method !== 'HEAD') {
-    res.status(405).json({ error: 'Use GET' })
-    return
-  }
-
-  try {
+export default secure(
+  { name: 'contests', methods: ['GET', 'HEAD'], auth: 'none', rateLimit: { limit: 60 } },
+  async (_req, res) => {
     const { contests, failed } = await fetchAllContests({ limit: 60 })
 
     if (contests.length === 0) {
@@ -45,16 +45,19 @@ export default async function handler(req: any, res: any) {
      * failing source shows the last good list instead of an error while the
      * refresh happens behind it. These sources move on the order of days, so
      * this costs nothing in freshness.
+     *
+     * This deliberately overrides the guard's `no-store`. That default is
+     * right for every other endpoint, because their responses are per-user;
+     * this one is identical for everybody and carries nothing personal, so it
+     * is the one response here a shared cache SHOULD hold.
      */
     res.setHeader('Cache-Control', 'public, s-maxage=900, stale-while-revalidate=86400')
+    res.setHeader('Vary', 'Accept-Encoding')
     res.status(200).json({
       updatedAt: new Date().toISOString(),
       source: 'live',
       failed,
       contests,
     })
-  } catch (e) {
-    console.error(e)
-    res.status(502).json({ error: 'Could not reach the contest sources.' })
-  }
-}
+  },
+)

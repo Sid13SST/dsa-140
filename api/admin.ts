@@ -1,23 +1,25 @@
-import { clerk, fail, HttpError, requireUser } from './_lib/clerk'
+import { clerk } from './_lib/clerk'
+import { secure } from './_lib/http'
 import type { PaymentRow } from './_lib/payments'
 
 /**
  * GET /api/admin — who signed up, who paid.
  *
- * The admin check happens HERE, against the server's own list, not in React. A
- * frontend guard only stops an honest user wandering in; this stops anyone else
- * calling the endpoint directly with their own valid token.
+ * `auth: 'admin'` is the whole access decision, and it is made in the guard
+ * before this function runs: a verified token, a session Clerk still calls
+ * active, a first factor proved within the hour, an account that is neither
+ * banned nor locked, and an email on the server's own ADMIN_EMAILS list. A
+ * frontend guard only stops an honest user wandering in; this stops anyone
+ * else calling the endpoint directly with a perfectly valid token of their
+ * own, and answers 404 so the response does not confirm the surface exists.
  *
- * It answers 404 rather than 403 to non-admins, so the response does not
- * confirm that an admin surface exists at all.
+ * The per-user limit is tight because this endpoint reads every user in the
+ * instance: it is the most expensive call in the API and the most attractive
+ * one to scrape.
  */
-export default async function handler(req: any, res: any) {
-  try {
-    if (req.method !== 'GET') throw new HttpError(405, 'Use GET')
-
-    const caller = await requireUser(req)
-    if (!caller.isAdmin) throw new HttpError(404, 'Not found')
-
+export default secure(
+  { name: 'admin', methods: ['GET'], auth: 'admin', rateLimit: { limit: 20 }, userRateLimit: { limit: 30 } },
+  async (_req, res) => {
     const client = clerk()
 
     // Clerk paginates; 500 is far beyond anything this will see, and asking for
@@ -60,13 +62,10 @@ export default async function handler(req: any, res: any) {
       totals: {
         signedUp: users.length,
         paid,
-        revenueRupees:
-          paidRows.reduce((n, p) => n + Number(p.amount ?? 0), 0) / 100,
+        revenueRupees: paidRows.reduce((n, p) => n + Number(p.amount ?? 0), 0) / 100,
         conversionPct: users.length ? Math.round((paid / users.length) * 100) : 0,
         failed: payments.filter((p) => p.status === 'failed').length,
       },
     })
-  } catch (e) {
-    fail(res, e)
-  }
-}
+  },
+)
