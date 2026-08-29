@@ -1,14 +1,6 @@
 {
-  "updatedAt": "2026-08-28T17:59:28.420Z",
+  "updatedAt": "2026-08-29T01:36:26.076Z",
   "contests": [
-    {
-      "id": "cc-PLACEPREP05",
-      "name": "Placement Prep Weekends - 05",
-      "platform": "CodeChef",
-      "startsAt": 1787941826000,
-      "durationMin": 150,
-      "url": "https://www.codechef.com/PLACEPREP05"
-    },
     {
       "id": "ac-ahc070",
       "name": "13th Asprova Programming Contest（AtCoder Heuristic Contest 070）",
@@ -136,6 +128,14 @@
       "startsAt": 1789905600000,
       "durationMin": 150,
       "url": "https://atcoder.jp/contests/arc230"
+    },
+    {
+      "id": "cc-START257",
+      "name": "Starters 255",
+      "platform": "CodeChef",
+      "startsAt": 1790173800000,
+      "durationMin": 120,
+      "url": "https://www.codechef.com/START257"
     },
     {
       "id": "ac-ahc072",
