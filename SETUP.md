@@ -151,6 +151,22 @@ it wrong and every request answers 401 with `wrong_issuer` in the function logs.
 
 Run `npm run check:auth` on its own to see what the policy actually refuses.
 
+### The response headers
+
+`vercel.json` sets them, and it takes **no comments** — the schema rejects even a
+`"//"` key, so the reasoning lives here instead. They apply to documents and
+assets only; the `api/` responses set their own in `api/_lib/errors.ts`, because
+those need `no-store` and must not be fought over by a second source.
+
+| Header | Why |
+| --- | --- |
+| `Strict-Transport-Security` | two years, subdomains included — stops the first request of a session being downgraded to http and read in transit |
+| `X-Content-Type-Options: nosniff` | stops a response being reinterpreted as script because a sniffing browser liked the bytes |
+| `X-Frame-Options: DENY` | nothing here should ever be framed, and a sign-in page that can be is the classic clickjacking target |
+| `Referrer-Policy` | no full URLs leak to third parties |
+| `Permissions-Policy` | denies the powerful APIs this app has no use for, so a compromised dependency cannot reach for them |
+| `Content-Security-Policy-Report-Only` | see below — it reports and blocks nothing until you flip it |
+
 ### What this is NOT
 
 Worth being straight about, because "hardened" is not "invulnerable":

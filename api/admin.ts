@@ -1,6 +1,6 @@
-import { clerk } from './_lib/clerk'
-import { secure } from './_lib/http'
-import type { PaymentRow } from './_lib/payments'
+import { clerk } from './_lib/clerk.js'
+import { secure } from './_lib/http.js'
+import type { PaymentRow } from './_lib/payments.js'
 
 /**
  * GET /api/admin — who signed up, who paid.

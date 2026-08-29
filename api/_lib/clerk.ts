@@ -7,7 +7,7 @@ import {
   parseBearer,
 } from './claims.mjs'
 import type { SessionClaims } from './claims.mjs'
-import { HttpError } from './errors'
+import { HttpError } from './errors.js'
 
 /**
  * Server-side Clerk access, and the only place a caller's identity is decided.
