@@ -70,6 +70,12 @@ export default function SignIn() {
     },
     elements: {
       card: 'shadow-none border border-rule',
+      /*
+       * Clerk's own footer is hidden because it repeats the site's branding
+       * inside the card. It also carries the switch between signing in and
+       * signing up, so that link is rebuilt below — without it, someone who
+       * lands on /signin with no account has no way forward from this page.
+       */
       footer: 'hidden',
     },
   }
@@ -85,6 +91,24 @@ export default function SignIn() {
       ) : (
         <ClerkSignIn appearance={appearance} signUpUrl="/signin?mode=signup" />
       )}
+
+      <p className="text-[13px] text-muted">
+        {signup ? (
+          <>
+            Already have an account?{' '}
+            <Link className="text-brand font-medium hover:underline" to="/signin">
+              Sign in
+            </Link>
+          </>
+        ) : (
+          <>
+            New here?{' '}
+            <Link className="text-brand font-medium hover:underline" to="/signin?mode=signup">
+              Create an account
+            </Link>
+          </>
+        )}
+      </p>
 
       <p className="text-[11px] text-muted max-w-sm text-center leading-relaxed">
         Passwords, verification and multi-factor are handled by Clerk — none of it reaches this
