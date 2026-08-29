@@ -1,5 +1,8 @@
 node_modules
 dist
+
+# Written by `vercel link` — project and org ids, plus pulled env files.
+.vercel
 .env
 .env.local
 .DS_Store
