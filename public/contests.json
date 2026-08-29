@@ -1,22 +1,6 @@
 {
-  "updatedAt": "2026-08-29T09:38:15.500Z",
+  "updatedAt": "2026-08-29T16:02:37.099Z",
   "contests": [
-    {
-      "id": "ac-abc473",
-      "name": "AtCoder Beginner Contest 473",
-      "platform": "AtCoder",
-      "startsAt": 1788004800000,
-      "durationMin": 100,
-      "url": "https://atcoder.jp/contests/abc473"
-    },
-    {
-      "id": "cf-2258",
-      "name": "Codeforces Round 1118 (Div. 2)",
-      "platform": "Codeforces",
-      "startsAt": 1788014100000,
-      "durationMin": 120,
-      "url": "https://codeforces.com/contest/2258"
-    },
     {
       "id": "ac-arc228",
       "name": "AtCoder Regular Contest++ 228",
