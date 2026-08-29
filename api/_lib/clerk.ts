@@ -8,6 +8,7 @@ import {
 } from './claims.mjs'
 import type { SessionClaims } from './claims.mjs'
 import { HttpError } from './errors.js'
+import { isAdmin, isSuperAdmin as isSuperAdminEmail, normaliseEmail } from './roles.mjs'
 
 /**
  * Server-side Clerk access, and the only place a caller's identity is decided.
@@ -79,19 +80,29 @@ export function authorizedParties(): string[] {
   return parties
 }
 
-/** Whose email gets the admin console. Checked HERE, not taken from the client. */
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? 'siddhant.prasad8@gmail.com')
-  .split(',')
-  .map((e) => e.trim().toLowerCase())
-  .filter(Boolean)
+/**
+ * The two roles, decided HERE and never taken from the client.
+ *
+ * SUPER_ADMIN_EMAIL is a single address, not a list, and it defaults to the
+ * owner's. ADMIN_EMAILS may hold several. See roles.mjs for why they are
+ * separate: the admin list is the one that will grow, and growing it must not
+ * silently hand over the super-admin dashboard.
+ */
+const SUPER_ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL ?? 'siddhant.prasad8@gmail.com'
+const ADMIN_EMAILS = process.env.ADMIN_EMAILS ?? SUPER_ADMIN_EMAIL
 
 export const isAdminEmail = (email: string | null | undefined): boolean =>
-  !!email && ADMIN_EMAILS.includes(email.toLowerCase())
+  isAdmin(email, ADMIN_EMAILS, SUPER_ADMIN_EMAIL)
+
+export const isSuperAdminAddress = (email: string | null | undefined): boolean =>
+  isSuperAdminEmail(email, SUPER_ADMIN_EMAIL)
 
 export interface AuthedUser {
   id: string
   email: string
   isAdmin: boolean
+  /** The single super admin. Strictly narrower than isAdmin. */
+  isSuperAdmin: boolean
   /** The session this token came from — the unit Clerk can revoke. */
   sessionId: string
   /** How old the presented token was, in ms. Logged, to make replay visible. */
@@ -111,7 +122,12 @@ const UNAUTHENTICATED = 'Not signed in'
  */
 export async function requireUser(
   req: { headers: Record<string, unknown> },
-  { requireAdmin = false }: { requireAdmin?: boolean } = {},
+  {
+    requireAdmin = false,
+  }: {
+    /** Runs the extra session and step-up checks. Used for both admin levels. */
+    requireAdmin?: boolean
+  } = {},
 ): Promise<AuthedUser> {
   const header = req.headers['authorization'] ?? req.headers['Authorization']
   const token = parseBearer(header)
@@ -211,7 +227,11 @@ export async function requireUser(
     id: user.id,
     email,
     isAdmin: isAdminEmail(email),
+    isSuperAdmin: isSuperAdminAddress(email),
     sessionId: verified.sessionId,
     tokenAgeMs: Date.now() - verified.issuedAt,
   }
 }
+
+/** Display-safe comparison helper, for handlers that group by address. */
+export const sameAddress = (a: string, b: string) => normaliseEmail(a) === normaliseEmail(b)

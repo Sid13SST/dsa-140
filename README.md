@@ -215,6 +215,8 @@ src/
   components/          Header, Overview, DayPanel, Panels
 api/
   contests.ts          GET /api/contests — live rounds, fetched server-side
+  insights.ts          GET /api/insights — super-admin only: signups + insights
+  _lib/roles.mjs       admin vs super admin — one address, pure, and tested
   _lib/http.ts         the one guard every endpoint goes through
   _lib/clerk.ts        token verification, ban/lock checks, admin step-up
   _lib/claims.mjs      the session-token policy — pure, and tested

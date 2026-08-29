@@ -99,6 +99,7 @@ means a rebuild. A running deploy cannot be fixed by changing a setting.
 | `CLERK_AUTHORIZED_PARTIES` | not secret, but server-side — see below |
 | `CLERK_ISSUER` | not secret, but server-side — see below |
 | `ADMIN_EMAILS` | not secret, but server-side — this is the admin list |
+| `SUPER_ADMIN_EMAIL` | not secret, but server-side — a single address, see roles below |
 
 **Anything prefixed `VITE_` is compiled into the bundle and is public.** Fine for
 the first two, fatal for the rest.
@@ -150,6 +151,28 @@ it wrong and every request answers 401 with `wrong_issuer` in the function logs.
 | A rule cannot rot unnoticed | `npm run check:auth` runs 46 hostile-input checks against the policy in the build |
 
 Run `npm run check:auth` on its own to see what the policy actually refuses.
+
+### Two admin levels
+
+| Role | Who | Sees |
+| --- | --- | --- |
+| **admin** | anyone on `ADMIN_EMAILS` | `/admin` — accounts and payment attempts |
+| **super admin** | the one address in `SUPER_ADMIN_EMAIL` | all of the above, plus `/super` — who signed up, how, and whether they came back |
+
+They are separate so `ADMIN_EMAILS` can grow — a collaborator, someone covering
+while you are away — without that also handing over the signup and usage view.
+Adding an address to `ADMIN_EMAILS` gets a **404** from `/api/insights`, not a
+403: the endpoint does not confirm it exists to anyone who is not the one
+address. The super admin is always an admin, whatever the list says.
+
+Both default to `siddhant.prasad8@gmail.com` when unset. The comparison is
+NFKC-normalised and case-insensitive, so a fullwidth-unicode lookalike of the
+owner's address does not match — `npm run check:auth` proves it, along with the
+case where an empty address meets an unset variable and must not compare equal.
+
+`/super` shows only what Clerk knows: signup date and method, last activity,
+email verification, MFA, ban and lock state. **Study progress is not there and
+cannot be** — it lives in each person's localStorage and is never sent anywhere.
 
 ### The response headers
 

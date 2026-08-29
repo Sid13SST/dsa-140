@@ -18,7 +18,7 @@ import { clientIp, hit } from './ratelimit.mjs'
  * treats an anonymous caller as signed in.
  */
 
-export type AuthMode = 'none' | 'user' | 'admin'
+export type AuthMode = 'none' | 'user' | 'admin' | 'super'
 
 export interface Ctx {
   user: AuthedUser | null
@@ -79,7 +79,7 @@ export function secure(
   handler: (req: any, res: any, ctx: AnonCtx) => Promise<void> | void,
 ): Guarded
 export function secure(
-  options: GuardOptions & { auth: 'user' | 'admin' },
+  options: GuardOptions & { auth: 'user' | 'admin' | 'super' },
   handler: (req: any, res: any, ctx: AuthedCtx) => Promise<void> | void,
 ): Guarded
 export function secure(options: GuardOptions, handler: Handler): Guarded {
@@ -136,16 +136,24 @@ export function secure(options: GuardOptions, handler: Handler): Guarded {
 
       let user: AuthedUser | null = null
       if (auth !== 'none') {
-        user = await requireUser(req, { requireAdmin: auth === 'admin' })
+        const privileged = auth === 'admin' || auth === 'super'
+        user = await requireUser(req, { requireAdmin: privileged })
         userId = user.id
 
         /*
-         * The admin surface answers 404, not 403, to everyone else. A 403
+         * Both admin surfaces answer 404, not 403, to everyone else. A 403
          * confirms the endpoint exists and that the caller is simply not on
          * the list, which is a free fact this API does not need to give away.
+         *
+         * 'super' is checked against a single address rather than the admin
+         * list, so adding someone to ADMIN_EMAILS never reaches these
+         * endpoints — that separation is the whole point of the role.
          */
         if (auth === 'admin' && !user.isAdmin) {
           throw new HttpError(404, 'Not found', 'not_admin')
+        }
+        if (auth === 'super' && !user.isSuperAdmin) {
+          throw new HttpError(404, 'Not found', 'not_super_admin')
         }
 
         if (userRateLimit) {

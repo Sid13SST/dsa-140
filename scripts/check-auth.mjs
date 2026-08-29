@@ -25,6 +25,7 @@ import {
   parseBearer,
 } from '../api/_lib/claims.mjs'
 import { clientIp, hit, _reset } from '../api/_lib/ratelimit.mjs'
+import { isAdmin, isSuperAdmin, normaliseEmail, parseEmailList } from '../api/_lib/roles.mjs'
 
 let failures = 0
 let checks = 0
@@ -257,6 +258,68 @@ check('parses and trims a list', () => {
   assert(p.length === 2 && p[0] === 'https://a.com' && p[1] === 'https://b.com', `got ${p}`)
 })
 check('treats unset as empty', () => assert(parseAuthorizedParties(undefined).length === 0, 'no'))
+
+console.log('roles')
+
+const SUPER = 'siddhant.prasad8@gmail.com'
+
+check('the super admin is the super admin', () =>
+  assert(isSuperAdmin(SUPER, SUPER), 'rejected the configured address'))
+
+check('case and whitespace do not matter', () => {
+  assert(isSuperAdmin('  Siddhant.Prasad8@Gmail.com  ', SUPER), 'rejected a differently-cased form')
+  assert(isSuperAdmin(SUPER, ' SIDDHANT.PRASAD8@GMAIL.COM '), 'rejected a cased configured value')
+})
+
+check('a unicode lookalike is not the super admin', () => {
+  /*
+   * Fullwidth characters render almost identically. NFKC folds them to the
+   * plain form, so the comparison cannot be fooled by an address that merely
+   * LOOKS like the owner's in a table.
+   */
+  const fullwidth = 'ｓiddhant.prasad8@gmail.com'
+  assert(fullwidth !== SUPER, 'test fixture is not actually a lookalike')
+  assert(normaliseEmail(fullwidth) === SUPER, 'NFKC should fold this to the plain form')
+})
+
+check('a different address is never the super admin', () => {
+  for (const other of [
+    'someone.else@gmail.com',
+    'siddhant.prasad8@gmail.com.evil.com',
+    'siddhant.prasad8+admin@gmail.com',
+    'evil@siddhant.prasad8@gmail.com',
+    'siddhant.prasad8@gmail.co',
+  ]) {
+    assert(!isSuperAdmin(other, SUPER), `accepted ${other}`)
+  }
+})
+
+check('empty never matches empty', () => {
+  // The failure that matters: a user with no email and an unset variable must
+  // not compare equal and quietly become the super admin.
+  assert(!isSuperAdmin('', ''), 'empty matched empty')
+  assert(!isSuperAdmin(null, SUPER), 'null matched')
+  assert(!isSuperAdmin(SUPER, undefined), 'unset configured value matched')
+  assert(!isSuperAdmin(undefined, undefined), 'undefined matched undefined')
+})
+
+check('an admin is not automatically the super admin', () => {
+  const admins = 'helper@example.com,siddhant.prasad8@gmail.com'
+  assert(isAdmin('helper@example.com', admins, SUPER), 'the admin list should admit them')
+  assert(!isSuperAdmin('helper@example.com', SUPER), 'but they are NOT the super admin')
+})
+
+check('the super admin is always an admin', () =>
+  // Even if ADMIN_EMAILS is set to a list that omits them.
+  assert(isAdmin(SUPER, 'someone.else@example.com', SUPER), 'super admin lost admin access'))
+
+check('an admin list parses and normalises', () => {
+  const list = parseEmailList(' A@b.com , C@D.com ,, ')
+  assert(list.length === 2 && list[0] === 'a@b.com' && list[1] === 'c@d.com', `got ${list}`)
+})
+
+check('nobody is an admin when nothing is configured', () =>
+  assert(!isAdmin('anyone@example.com', undefined, undefined), 'accepted with no config'))
 
 console.log('rate limiting')
 
