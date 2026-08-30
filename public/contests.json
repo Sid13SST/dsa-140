@@ -1,14 +1,6 @@
 {
-  "updatedAt": "2026-08-30T09:05:43.267Z",
+  "updatedAt": "2026-08-30T15:51:26.568Z",
   "contests": [
-    {
-      "id": "ac-arc228",
-      "name": "AtCoder Regular Contest++ 228",
-      "platform": "AtCoder",
-      "startsAt": 1788091200000,
-      "durationMin": 150,
-      "url": "https://atcoder.jp/contests/arc228"
-    },
     {
       "id": "ac-awc0146",
       "name": "AtCoder Weekday Contest 0146 Beta",
