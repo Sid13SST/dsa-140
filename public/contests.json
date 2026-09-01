@@ -1,13 +1,13 @@
 {
-  "updatedAt": "2026-09-01T08:11:40.940Z",
+  "updatedAt": "2026-09-01T13:51:24.405Z",
   "contests": [
     {
-      "id": "ac-awc0147",
-      "name": "AtCoder Weekday Contest 0147 Beta",
+      "id": "ac-awc0148",
+      "name": "AtCoder Weekday Contest 0148 Beta",
       "platform": "AtCoder",
-      "startsAt": 1788260400000,
+      "startsAt": 1788346800000,
       "durationMin": 60,
-      "url": "https://atcoder.jp/contests/awc0147"
+      "url": "https://atcoder.jp/contests/awc0148"
     },
     {
       "id": "cc-START254",
