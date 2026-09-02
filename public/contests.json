@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-09-02T02:22:42.938Z",
+  "updatedAt": "2026-09-02T07:30:54.206Z",
   "contests": [
     {
       "id": "ac-awc0148",
@@ -16,6 +16,14 @@
       "startsAt": 1788359400000,
       "durationMin": 120,
       "url": "https://www.codechef.com/START254"
+    },
+    {
+      "id": "cc-PLACEPREP06",
+      "name": "Placement Prep Weekends - 06",
+      "platform": "CodeChef",
+      "startsAt": 1788546615000,
+      "durationMin": 150,
+      "url": "https://www.codechef.com/PLACEPREP06"
     },
     {
       "id": "ac-arc229",
@@ -104,14 +112,6 @@
       "startsAt": 1790330400000,
       "durationMin": 100,
       "url": "https://atcoder.jp/contests/ahc072"
-    },
-    {
-      "id": "cc-START258",
-      "name": "Starters 255",
-      "platform": "CodeChef",
-      "startsAt": 1790778600000,
-      "durationMin": 120,
-      "url": "https://www.codechef.com/START258"
     },
     {
       "id": "ac-aalc001",
