@@ -1,13 +1,13 @@
 {
-  "updatedAt": "2026-09-03T07:37:37.567Z",
+  "updatedAt": "2026-09-03T13:10:19.213Z",
   "contests": [
     {
-      "id": "ac-awc0149",
-      "name": "AtCoder Weekday Contest 0149 Beta",
+      "id": "ac-awc0150",
+      "name": "AtCoder Weekday Contest 0150 Beta",
       "platform": "AtCoder",
-      "startsAt": 1788433200000,
-      "durationMin": 60,
-      "url": "https://atcoder.jp/contests/awc0149"
+      "startsAt": 1788519600000,
+      "durationMin": 150,
+      "url": "https://atcoder.jp/contests/awc0150"
     },
     {
       "id": "cc-PLACEPREP06",
@@ -26,6 +26,14 @@
       "url": "https://atcoder.jp/contests/arc229"
     },
     {
+      "id": "cf-2259",
+      "name": "Codeforces Round 1119 (Div. 3)",
+      "platform": "Codeforces",
+      "startsAt": 1788618900000,
+      "durationMin": 135,
+      "url": "https://codeforces.com/contest/2259"
+    },
+    {
       "id": "ac-abc474",
       "name": "AtCoder Beginner Contest 474",
       "platform": "AtCoder",
@@ -40,6 +48,14 @@
       "startsAt": 1788787806000,
       "durationMin": 180,
       "url": "https://www.codechef.com/DSAMONDAY019"
+    },
+    {
+      "id": "cf-2260",
+      "name": "Educational Codeforces Round 194 (Rated for Div. 2)",
+      "platform": "Codeforces",
+      "startsAt": 1788878100000,
+      "durationMin": 120,
+      "url": "https://codeforces.com/contest/2260"
     },
     {
       "id": "cc-START255",
@@ -104,6 +120,14 @@
       "startsAt": 1791777600000,
       "durationMin": 300,
       "url": "https://atcoder.jp/contests/aalc001"
+    },
+    {
+      "id": "cf-2261",
+      "name": "Codeforces Round (Div. 1 + Div. 2)",
+      "platform": "Codeforces",
+      "startsAt": 1792247700000,
+      "durationMin": 180,
+      "url": "https://codeforces.com/contest/2261"
     }
   ]
 }
