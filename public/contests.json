@@ -1,14 +1,6 @@
 {
-  "updatedAt": "2026-09-04T13:04:05.599Z",
+  "updatedAt": "2026-09-04T17:58:17.018Z",
   "contests": [
-    {
-      "id": "ac-awc0150",
-      "name": "AtCoder Weekday Contest 0150 Beta",
-      "platform": "AtCoder",
-      "startsAt": 1788519600000,
-      "durationMin": 150,
-      "url": "https://atcoder.jp/contests/awc0150"
-    },
     {
       "id": "cc-PLACEPREP06",
       "name": "Placement Prep Weekends - 06",
@@ -50,6 +42,14 @@
       "url": "https://atcoder.jp/contests/jsc2026advance-final"
     },
     {
+      "id": "ac-awc0151",
+      "name": "AtCoder Weekday Contest 0151 Beta",
+      "platform": "AtCoder",
+      "startsAt": 1788778800000,
+      "durationMin": 60,
+      "url": "https://atcoder.jp/contests/awc0151"
+    },
+    {
       "id": "cc-DSAMONDAY019",
       "name": "Monday Munch - DSA Challenge 019 (Rated)",
       "platform": "CodeChef",
@@ -80,6 +80,22 @@
       "startsAt": 1789214400000,
       "durationMin": 100,
       "url": "https://atcoder.jp/contests/abc475"
+    },
+    {
+      "id": "cf-2262",
+      "name": "Codeforces Round (Div. 1)",
+      "platform": "Codeforces",
+      "startsAt": 1789223700000,
+      "durationMin": 180,
+      "url": "https://codeforces.com/contest/2262"
+    },
+    {
+      "id": "cf-2263",
+      "name": "Codeforces Round (Div. 2)",
+      "platform": "Codeforces",
+      "startsAt": 1789223700000,
+      "durationMin": 180,
+      "url": "https://codeforces.com/contest/2263"
     },
     {
       "id": "ac-ahc071",
