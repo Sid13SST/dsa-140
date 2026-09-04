@@ -30,3 +30,16 @@ export const ADMIN_EMAILS = ['siddhant.prasad8@gmail.com']
 
 export const isAdminEmail = (email: string | null | undefined): boolean =>
   !!email && ADMIN_EMAILS.some((a) => a.toLowerCase() === email.toLowerCase())
+
+/**
+ * The single super admin.
+ *
+ * Same caveat as above and more so: this decides whether the /super link is
+ * DRAWN. /api/insights decides what is served, against SUPER_ADMIN_EMAIL in
+ * the server's environment, and answers 404 to everyone else — editing this
+ * constant in devtools gets you an empty page and a 404 in the network tab.
+ */
+export const SUPER_ADMIN_EMAIL = 'siddhant.prasad8@gmail.com'
+
+export const isSuperAdminEmail = (email: string | null | undefined): boolean =>
+  !!email && email.normalize('NFKC').trim().toLowerCase() === SUPER_ADMIN_EMAIL

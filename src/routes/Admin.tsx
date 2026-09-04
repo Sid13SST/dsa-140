@@ -119,13 +119,19 @@ export default function Admin() {
       <div className="max-w-6xl mx-auto space-y-3">
         <div className="flex items-baseline justify-between gap-3 flex-wrap">
           <div>
-            <span className="eyebrow">super admin</span>
+            <span className="eyebrow">admin</span>
             <h1 className="font-display text-xl font-bold mt-0.5">Backend 200 — operations</h1>
           </div>
           <div className="flex items-center gap-2">
             <button className="btn text-xs" onClick={() => void load()} disabled={loading}>
               {loading ? 'Refreshing…' : 'Refresh'}
             </button>
+            {/* Only the super admin sees this, and /api/insights 404s anyone else. */}
+            {me?.isSuperAdmin && (
+              <Link className="btn btn-primary text-xs" to="/super">
+                Signups &amp; insights
+              </Link>
+            )}
             <Link className="btn text-xs" to="/app">
               Dashboard
             </Link>
