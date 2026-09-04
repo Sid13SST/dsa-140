@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-09-04T02:25:38.978Z",
+  "updatedAt": "2026-09-04T07:36:28.834Z",
   "contests": [
     {
       "id": "ac-awc0150",
@@ -40,6 +40,14 @@
       "startsAt": 1788667800000,
       "durationMin": 100,
       "url": "https://atcoder.jp/contests/abc474"
+    },
+    {
+      "id": "ac-jsc2026advance-final",
+      "name": "第七回日本最強プログラマー学生選手権～Advance～",
+      "platform": "AtCoder",
+      "startsAt": 1788667800000,
+      "durationMin": 100,
+      "url": "https://atcoder.jp/contests/jsc2026advance-final"
     },
     {
       "id": "cc-DSAMONDAY019",
