@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-09-04T07:36:28.834Z",
+  "updatedAt": "2026-09-04T13:04:05.599Z",
   "contests": [
     {
       "id": "ac-awc0150",
@@ -98,6 +98,14 @@
       "url": "https://www.codechef.com/START256"
     },
     {
+      "id": "ac-abc476",
+      "name": "JIJ Programming Contest 2026（AtCoder Beginner Contest 476）",
+      "platform": "AtCoder",
+      "startsAt": 1789819200000,
+      "durationMin": 100,
+      "url": "https://atcoder.jp/contests/abc476"
+    },
+    {
       "id": "ac-arc230",
       "name": "AtCoder Regular Contest++ 230",
       "platform": "AtCoder",
@@ -120,6 +128,14 @@
       "startsAt": 1790330400000,
       "durationMin": 100,
       "url": "https://atcoder.jp/contests/ahc072"
+    },
+    {
+      "id": "ac-agc078",
+      "name": "AtCoder Grand Contest 078",
+      "platform": "AtCoder",
+      "startsAt": 1790510400000,
+      "durationMin": 210,
+      "url": "https://atcoder.jp/contests/agc078"
     },
     {
       "id": "ac-aalc001",
