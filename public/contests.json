@@ -1,14 +1,6 @@
 {
-  "updatedAt": "2026-09-05T12:16:15.860Z",
+  "updatedAt": "2026-09-05T17:03:39.690Z",
   "contests": [
-    {
-      "id": "cf-2259",
-      "name": "Codeforces Round 1119 (Div. 3)",
-      "platform": "Codeforces",
-      "startsAt": 1788618900000,
-      "durationMin": 135,
-      "url": "https://codeforces.com/contest/2259"
-    },
     {
       "id": "ac-abc474",
       "name": "AtCoder Beginner Contest 474",
