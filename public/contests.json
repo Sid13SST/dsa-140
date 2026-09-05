@@ -1,14 +1,6 @@
 {
-  "updatedAt": "2026-09-05T07:17:25.315Z",
+  "updatedAt": "2026-09-05T12:16:15.860Z",
   "contests": [
-    {
-      "id": "ac-arc229",
-      "name": "AtCoder Regular Contest-- 229",
-      "platform": "AtCoder",
-      "startsAt": 1788609600000,
-      "durationMin": 120,
-      "url": "https://atcoder.jp/contests/arc229"
-    },
     {
       "id": "cf-2259",
       "name": "Codeforces Round 1119 (Div. 3)",
