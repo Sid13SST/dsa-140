@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-09-05T17:03:39.690Z",
+  "updatedAt": "2026-09-05T19:47:49.682Z",
   "contests": [
     {
       "id": "ac-abc474",
@@ -80,6 +80,14 @@
       "startsAt": 1789293600000,
       "durationMin": 240,
       "url": "https://atcoder.jp/contests/ahc071"
+    },
+    {
+      "id": "cf-2264",
+      "name": "Codeforces Round (Div. 2)",
+      "platform": "Codeforces",
+      "startsAt": 1789319100000,
+      "durationMin": 120,
+      "url": "https://codeforces.com/contest/2264"
     },
     {
       "id": "cc-START256",
