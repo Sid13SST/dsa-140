@@ -1,22 +1,6 @@
 {
-  "updatedAt": "2026-09-06T02:23:33.974Z",
+  "updatedAt": "2026-09-06T07:30:03.283Z",
   "contests": [
-    {
-      "id": "ac-abc474",
-      "name": "AtCoder Beginner Contest 474",
-      "platform": "AtCoder",
-      "startsAt": 1788667800000,
-      "durationMin": 100,
-      "url": "https://atcoder.jp/contests/abc474"
-    },
-    {
-      "id": "ac-jsc2026advance-final",
-      "name": "第七回日本最強プログラマー学生選手権～Advance～",
-      "platform": "AtCoder",
-      "startsAt": 1788667800000,
-      "durationMin": 100,
-      "url": "https://atcoder.jp/contests/jsc2026advance-final"
-    },
     {
       "id": "ac-awc0151",
       "name": "AtCoder Weekday Contest 0151 Beta",
