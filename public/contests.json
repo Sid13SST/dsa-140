@@ -1,21 +1,13 @@
 {
-  "updatedAt": "2026-09-07T07:46:48.534Z",
+  "updatedAt": "2026-09-07T14:40:48.393Z",
   "contests": [
     {
-      "id": "ac-awc0151",
-      "name": "AtCoder Weekday Contest 0151 Beta",
+      "id": "ac-awc0152",
+      "name": "AtCoder Weekday Contest 0152 Beta",
       "platform": "AtCoder",
-      "startsAt": 1788778800000,
+      "startsAt": 1788865200000,
       "durationMin": 60,
-      "url": "https://atcoder.jp/contests/awc0151"
-    },
-    {
-      "id": "cc-DSAMONDAY019",
-      "name": "Monday Munch - DSA Challenge 019 (Rated)",
-      "platform": "CodeChef",
-      "startsAt": 1788787806000,
-      "durationMin": 180,
-      "url": "https://www.codechef.com/DSAMONDAY019"
+      "url": "https://atcoder.jp/contests/awc0152"
     },
     {
       "id": "cf-2260",
