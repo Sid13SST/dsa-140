@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-09-07T23:14:15.016Z",
+  "updatedAt": "2026-09-08T02:32:19.954Z",
   "contests": [
     {
       "id": "ac-awc0152",
@@ -120,6 +120,14 @@
       "startsAt": 1790778600000,
       "durationMin": 120,
       "url": "https://www.codechef.com/START258"
+    },
+    {
+      "id": "ac-abc478",
+      "name": "AtCoder Beginner Contest 478",
+      "platform": "AtCoder",
+      "startsAt": 1791028800000,
+      "durationMin": 100,
+      "url": "https://atcoder.jp/contests/abc478"
     },
     {
       "id": "ac-aalc001",
