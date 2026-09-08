@@ -1,14 +1,6 @@
 {
-  "updatedAt": "2026-09-08T07:41:07.254Z",
+  "updatedAt": "2026-09-08T13:13:24.251Z",
   "contests": [
-    {
-      "id": "ac-awc0152",
-      "name": "AtCoder Weekday Contest 0152 Beta",
-      "platform": "AtCoder",
-      "startsAt": 1788865200000,
-      "durationMin": 60,
-      "url": "https://atcoder.jp/contests/awc0152"
-    },
     {
       "id": "cf-2260",
       "name": "Educational Codeforces Round 194 (Rated for Div. 2)",
@@ -16,6 +8,14 @@
       "startsAt": 1788878100000,
       "durationMin": 120,
       "url": "https://codeforces.com/contest/2260"
+    },
+    {
+      "id": "ac-awc0153",
+      "name": "AtCoder Weekday Contest 0153 Beta",
+      "platform": "AtCoder",
+      "startsAt": 1788951600000,
+      "durationMin": 60,
+      "url": "https://atcoder.jp/contests/awc0153"
     },
     {
       "id": "cc-START255",
@@ -131,7 +131,7 @@
     },
     {
       "id": "ac-arc232",
-      "name": "AtCoder Regular Contest 232 (Div.1)",
+      "name": "AtCoder Regular Contest++ 232",
       "platform": "AtCoder",
       "startsAt": 1791633600000,
       "durationMin": 150,
