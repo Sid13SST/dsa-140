@@ -1,14 +1,6 @@
 {
-  "updatedAt": "2026-09-08T13:13:24.251Z",
+  "updatedAt": "2026-09-08T18:14:47.462Z",
   "contests": [
-    {
-      "id": "cf-2260",
-      "name": "Educational Codeforces Round 194 (Rated for Div. 2)",
-      "platform": "Codeforces",
-      "startsAt": 1788878100000,
-      "durationMin": 120,
-      "url": "https://codeforces.com/contest/2260"
-    },
     {
       "id": "ac-awc0153",
       "name": "AtCoder Weekday Contest 0153 Beta",
