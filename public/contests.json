@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-09-09T02:33:38.038Z",
+  "updatedAt": "2026-09-09T07:45:07.659Z",
   "contests": [
     {
       "id": "ac-awc0153",
@@ -11,11 +11,19 @@
     },
     {
       "id": "cc-START255",
-      "name": "Starters 255",
+      "name": "Starters 255 (Rated still 6 stars)",
       "platform": "CodeChef",
       "startsAt": 1788964200000,
       "durationMin": 120,
       "url": "https://www.codechef.com/START255"
+    },
+    {
+      "id": "cc-PLACEPREP07",
+      "name": "Placement Prep Weekends - 07",
+      "platform": "CodeChef",
+      "startsAt": 1789151425000,
+      "durationMin": 150,
+      "url": "https://www.codechef.com/PLACEPREP07"
     },
     {
       "id": "ac-abc475",
