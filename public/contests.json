@@ -1,14 +1,6 @@
 {
-  "updatedAt": "2026-09-09T13:18:29.858Z",
+  "updatedAt": "2026-09-09T18:14:06.637Z",
   "contests": [
-    {
-      "id": "cc-START255",
-      "name": "Starters 255 (Rated still 6 stars)",
-      "platform": "CodeChef",
-      "startsAt": 1788964200000,
-      "durationMin": 120,
-      "url": "https://www.codechef.com/START255"
-    },
     {
       "id": "ac-awc0154",
       "name": "AtCoder Weekday Contest 0154 Beta",
@@ -120,6 +112,14 @@
       "startsAt": 1790510400000,
       "durationMin": 210,
       "url": "https://atcoder.jp/contests/agc078"
+    },
+    {
+      "id": "cc-START258",
+      "name": "Starters 258",
+      "platform": "CodeChef",
+      "startsAt": 1790778600000,
+      "durationMin": 120,
+      "url": "https://www.codechef.com/START258"
     },
     {
       "id": "ac-abc478",
