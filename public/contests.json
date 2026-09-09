@@ -1,14 +1,6 @@
 {
-  "updatedAt": "2026-09-09T07:45:07.659Z",
+  "updatedAt": "2026-09-09T13:18:29.858Z",
   "contests": [
-    {
-      "id": "ac-awc0153",
-      "name": "AtCoder Weekday Contest 0153 Beta",
-      "platform": "AtCoder",
-      "startsAt": 1788951600000,
-      "durationMin": 60,
-      "url": "https://atcoder.jp/contests/awc0153"
-    },
     {
       "id": "cc-START255",
       "name": "Starters 255 (Rated still 6 stars)",
@@ -16,6 +8,14 @@
       "startsAt": 1788964200000,
       "durationMin": 120,
       "url": "https://www.codechef.com/START255"
+    },
+    {
+      "id": "ac-awc0154",
+      "name": "AtCoder Weekday Contest 0154 Beta",
+      "platform": "AtCoder",
+      "startsAt": 1789038000000,
+      "durationMin": 60,
+      "url": "https://atcoder.jp/contests/awc0154"
     },
     {
       "id": "cc-PLACEPREP07",
@@ -66,6 +66,14 @@
       "url": "https://codeforces.com/contest/2264"
     },
     {
+      "id": "cc-DSAMONDAY020",
+      "name": "Monday Munch - DSA Challenge 020 (Rated)",
+      "platform": "CodeChef",
+      "startsAt": 1789392600000,
+      "durationMin": 180,
+      "url": "https://www.codechef.com/DSAMONDAY020"
+    },
+    {
       "id": "cc-START256",
       "name": "Starters 256",
       "platform": "CodeChef",
@@ -91,7 +99,7 @@
     },
     {
       "id": "cc-START257",
-      "name": "Starters 255",
+      "name": "Starters 257",
       "platform": "CodeChef",
       "startsAt": 1790173800000,
       "durationMin": 120,
@@ -112,14 +120,6 @@
       "startsAt": 1790510400000,
       "durationMin": 210,
       "url": "https://atcoder.jp/contests/agc078"
-    },
-    {
-      "id": "cc-START258",
-      "name": "Starters 255",
-      "platform": "CodeChef",
-      "startsAt": 1790778600000,
-      "durationMin": 120,
-      "url": "https://www.codechef.com/START258"
     },
     {
       "id": "ac-abc478",
