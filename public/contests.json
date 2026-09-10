@@ -1,13 +1,13 @@
 {
-  "updatedAt": "2026-09-10T07:45:38.213Z",
+  "updatedAt": "2026-09-10T13:15:45.095Z",
   "contests": [
     {
-      "id": "ac-awc0154",
-      "name": "AtCoder Weekday Contest 0154 Beta",
+      "id": "ac-awc0155",
+      "name": "AtCoder Weekday Contest 0155 Beta",
       "platform": "AtCoder",
-      "startsAt": 1789038000000,
+      "startsAt": 1789124400000,
       "durationMin": 60,
-      "url": "https://atcoder.jp/contests/awc0154"
+      "url": "https://atcoder.jp/contests/awc0155"
     },
     {
       "id": "cc-PLACEPREP07",
@@ -27,7 +27,7 @@
     },
     {
       "id": "cf-2262",
-      "name": "Codeforces Round (Div. 1)",
+      "name": "Codeforces Round 1120 (Div. 1)",
       "platform": "Codeforces",
       "startsAt": 1789223700000,
       "durationMin": 180,
@@ -35,7 +35,7 @@
     },
     {
       "id": "cf-2263",
-      "name": "Codeforces Round (Div. 2)",
+      "name": "Codeforces Round 1120 (Div. 2)",
       "platform": "Codeforces",
       "startsAt": 1789223700000,
       "durationMin": 180,
@@ -51,7 +51,7 @@
     },
     {
       "id": "cf-2264",
-      "name": "Codeforces Round (Div. 2)",
+      "name": "Codeforces Round 1121 (Div. 2)",
       "platform": "Codeforces",
       "startsAt": 1789319100000,
       "durationMin": 120,
