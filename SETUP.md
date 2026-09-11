@@ -146,6 +146,8 @@ it wrong and every request answers 401 with `wrong_issuer` in the function logs.
 | The admin console needs recent proof | the `fva` claim — first factor within the hour — on top of the email list |
 | You cannot mark yourself paid | `publicMetadata` is writable only with the secret key |
 | Only you see the admin console | `/api/admin` checks your email server-side and answers **404**, not 403, to everyone else |
+| A payment is genuine | HMAC-SHA256 over `order_id\|payment_id`, compared timing-safely on the server |
+| You can see why you were refused | `/api/whoami` reports the server's verdict about **your own** session and nobody else's — it never names the configured admin addresses |
 | No cross-site request can act as you | the API reads the `Authorization` header only and never a cookie, so there is nothing for a forged form post to carry |
 | One caller cannot exhaust the API | per-IP and per-user rate limits in front of every endpoint |
 | A rule cannot rot unnoticed | `npm run check:auth` runs 46 hostile-input checks against the policy in the build |
@@ -164,6 +166,24 @@ while you are away — without that also handing over the signup and usage view.
 Adding an address to `ADMIN_EMAILS` gets a **404** from `/api/insights`, not a
 403: the endpoint does not confirm it exists to anyone who is not the one
 address. The super admin is always an admin, whatever the list says.
+
+### When `/admin` or `/super` turns you away
+
+Open **`/account`**. It asks `/api/whoami` — which is the server, not the
+bundle — and prints the address your session actually belongs to, whether that
+address is verified, and the server's own admin / super-admin verdict. The
+admin routes read the same answer, so whatever `/account` says is exactly why
+they let you in or did not.
+
+The four things it distinguishes, which used to be one indistinguishable silent
+redirect to the dashboard:
+
+| What it says | What to do |
+| --- | --- |
+| a different address than you expected | sign out and sign back in with the admin one |
+| `email verified: no` | verify it in Clerk; the list is matched against verified addresses only |
+| the right address, `admin: no` | `ADMIN_EMAILS` on the host is set to something else — fix it and redeploy |
+| “could not reach the server” | you are on GitHub Pages, which cannot run `api/` |
 
 Both default to `siddhant.prasad8@gmail.com` when unset. The comparison is
 NFKC-normalised and case-insensitive, so a fullwidth-unicode lookalike of the
@@ -206,7 +226,6 @@ Worth being straight about, because "hardened" is not "invulnerable":
   survives that, which is why it lives only in the host's environment.
 - **MFA is a dashboard toggle, not code.** The step-up check above can require a
   second factor, but only if you have turned one on in Clerk.
-| A payment is genuine | HMAC-SHA256 over `order_id\|payment_id`, compared timing-safely on the server |
 
 React's route guards are convenience only. They decide what to *show*; the
 server decides what it will *hand over*.

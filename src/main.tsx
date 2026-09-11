@@ -16,6 +16,7 @@ const Plans = lazy(() => import('./routes/Plans'))
 const Admin = lazy(() => import('./routes/Admin'))
 // One address ever reaches this, and /api/insights enforces that server-side.
 const SuperAdmin = lazy(() => import('./routes/SuperAdmin'))
+const Account = lazy(() => import('./routes/Account'))
 
 const Loading = () => (
   <div className="min-h-full flex items-center justify-center px-4 py-10">
@@ -42,6 +43,10 @@ const Tree = () => (
             </Protected>
           }
         />
+        {/* Not wrapped in Protected: when an admin route refuses you, this is
+            where it sends you to find out why, and a guard that bounced you
+            first would hide exactly the thing you came to read. */}
+        <Route path="/account" element={<Account />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="/super" element={<SuperAdmin />} />
         {/* Anything else goes home rather than showing a blank page. */}
