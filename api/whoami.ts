@@ -46,27 +46,47 @@ export default secure(
       isSuperAdmin: user.isSuperAdmin,
       sessionId: user.sessionId,
       tokenAgeMs: user.tokenAgeMs,
-      server: {
-        /*
-         * Both default to the owner's address when unset, so "not configured"
-         * is not the same as "nobody is admin" — it means the defaults are in
-         * play. Worth showing, because setting ADMIN_EMAILS to the wrong thing
-         * looks identical to leaving it unset until you can see this flag.
-         */
-        adminListConfigured,
-        authorizedPartiesConfigured: Boolean(
-          (process.env.CLERK_AUTHORIZED_PARTIES ?? '').trim(),
-        ),
-      },
       /*
-       * Said plainly, because the whole point is that someone stuck on this can
-       * read one line and know what to do next.
+       * How this server is configured — for admins only, and deliberately so.
+       *
+       * `authorizedPartiesConfigured` is the sharp one: false means the azp
+       * check cannot run, so a token minted for another application on the same
+       * Clerk instance would be accepted here. That is a useful thing for the
+       * owner to see and precisely the wrong thing to hand to a stranger who
+       * asked politely. `adminListConfigured` is milder but has no audience
+       * outside the person who can change it.
+       *
+       * Losing it costs the diagnostic nothing. A non-admin who is nevertheless
+       * signed in as the owner's address already has their answer from the two
+       * fields above: right address, `isAdmin: false` — so the server's list is
+       * pointed at something else.
+       */
+      ...(user.isAdmin
+        ? {
+            server: {
+              adminListConfigured,
+              authorizedPartiesConfigured: Boolean(
+                (process.env.CLERK_AUTHORIZED_PARTIES ?? '').trim(),
+              ),
+            },
+          }
+        : {}),
+      /*
+       * One line, said plainly, so someone stuck on this can read it and know
+       * what to do next.
+       *
+       * For a non-admin it says only who they are signed in as. It used to name
+       * the admin list and tell them to add themselves to it, which is advice
+       * no ordinary user can act on and which announces that an admin console
+       * exists — undoing the reason /api/admin answers 404 rather than 403. The
+       * pages that DO need that detail compose it themselves, and only show it
+       * to someone who asked for /admin by name.
        */
       verdict: user.isSuperAdmin
         ? 'This account reaches both /admin and /super.'
         : user.isAdmin
           ? 'This account reaches /admin. /super is restricted to the single super-admin address.'
-          : `Signed in as ${user.email}, which is not on the server's admin list. Sign in with the admin address, or add this one to ADMIN_EMAILS.`,
+          : `Signed in as ${user.email}.`,
     })
   },
 )

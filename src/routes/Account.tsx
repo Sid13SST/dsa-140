@@ -177,6 +177,17 @@ export default function Account() {
   const dsa = stats?.dsa ?? null
   const consistency = !dsa || dsa.elapsed === 0 ? 0 : pct(dsa.daysDone, dsa.elapsed)
 
+  /*
+   * Whether this account has any elevated role at all.
+   *
+   * One address is admin and super admin; to everyone else the admin surfaces
+   * are not a thing they are missing out on, they are a thing that should not
+   * appear. So the roles, the links to them, and the configuration advice about
+   * them are all gated on this single flag rather than scattered through the
+   * page as separate checks that could drift apart.
+   */
+  const elevated = access.phase === 'ready' && access.who.isAdmin
+
   return (
     <div className="min-h-full px-4 py-6">
       <div className="max-w-4xl mx-auto space-y-3">
@@ -186,7 +197,7 @@ export default function Account() {
             <h1 className="font-display text-xl font-bold mt-0.5">You</h1>
           </div>
           <div className="flex items-center gap-2">
-            {access.phase === 'ready' && access.who.isAdmin && (
+            {elevated && (
               <Link className="btn text-xs" to="/admin">
                 Operations
               </Link>
@@ -239,9 +250,7 @@ export default function Account() {
                   {access.phase === 'ready' && access.who.isSuperAdmin && (
                     <Tag tone="text-brand border-brand/40 bg-brand/10">super admin</Tag>
                   )}
-                  {access.phase === 'ready' && access.who.isAdmin && (
-                    <Tag tone="text-ac border-ac/40 bg-ac/10">admin</Tag>
-                  )}
+                  {elevated && <Tag tone="text-ac border-ac/40 bg-ac/10">admin</Tag>}
                   {access.phase === 'ready' && !access.who.emailVerified && (
                     <Tag tone="text-miss border-miss/40 bg-miss/10">email unverified</Tag>
                   )}
@@ -352,7 +361,7 @@ export default function Account() {
           {openProfile && (
             <Setting
               title="Password, email and two-factor"
-              note="Handled by Clerk in its own dialog, so no password ever passes through this app. Turning on two-factor is the single biggest gain for the admin account."
+              note="Handled by Clerk in its own dialog, so no password ever passes through this app. Turning on two-factor is the single biggest thing you can do for this account."
               action={
                 <button className="btn text-xs" onClick={openProfile}>
                   Open
@@ -366,7 +375,7 @@ export default function Account() {
         {!anonymous && (
           <div className="card p-4 space-y-2">
             <div className="flex items-baseline justify-between gap-2">
-              <span className="eyebrow">access</span>
+              <span className="eyebrow">{elevated ? 'access' : 'session'}</span>
               <button className="btn text-xs" onClick={recheck}>
                 Re-check
               </button>
@@ -380,9 +389,8 @@ export default function Account() {
               <>
                 <p className="text-[12px] text-miss">{access.message}</p>
                 <p className="text-[11px] text-muted">
-                  The admin routes need the functions in <code className="font-mono">api/</code>,
-                  which only the Vercel deployment runs. On GitHub Pages this will always fail and
-                  the admin routes will always refuse.
+                  This check needs the functions in <code className="font-mono">api/</code>, which
+                  only the Vercel deployment runs. On GitHub Pages it will always fail.
                 </p>
               </>
             )}
@@ -400,12 +408,17 @@ export default function Account() {
               <>
                 <p className="text-[12px] text-muted">{access.who.verdict}</p>
                 <AccessFacts state={access} />
-                <p className="text-[11px] text-muted">
-                  These come from the server, not from this page. If “admin” says no while you
-                  expected yes, the address above is the one to compare against{' '}
-                  <code className="font-mono">ADMIN_EMAILS</code> in the host's environment
-                  variables.
-                </p>
+                {/* Only an admin is shown the roles, so only an admin is told
+                    how to change them. To everyone else the card is simply a
+                    statement of which account they are signed in as. */}
+                {elevated && (
+                  <p className="text-[11px] text-muted">
+                    These come from the server, not from this page. If “admin” says no while you
+                    expected yes, the address above is the one to compare against{' '}
+                    <code className="font-mono">ADMIN_EMAILS</code> in the host's environment
+                    variables.
+                  </p>
+                )}
               </>
             )}
           </div>

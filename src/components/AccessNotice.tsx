@@ -57,28 +57,54 @@ const Row = ({ label, value, ok }: { label: string; value: string; ok?: boolean 
 /**
  * The facts the server reported about this session, laid out plainly.
  *
- * Shown on the account page always, and on a refusal so the cause is visible
- * next to the refusal rather than somewhere else.
+ * The admin rows are NOT for everyone. Exactly one address is admin and super
+ * admin, so to anyone else "admin — no / super admin — no" says nothing they
+ * could act on, and quietly undoes the reason /api/admin answers 404 rather
+ * than 403: a page that tells you there is an admin console you failed to
+ * reach has confirmed the console exists.
+ *
+ * So they appear in two places only — for an admin, and on a refusal page,
+ * which you only see by deliberately asking for /admin or /super. Everyone
+ * else sees who they are signed in as and nothing about roles at all.
  */
-export function AccessFacts({ state }: { state: AccessState }) {
+export function AccessFacts({
+  state,
+  showRoles,
+}: {
+  state: AccessState
+  /** Defaults to "only if they are an admin". The refusal page overrides it. */
+  showRoles?: boolean
+}) {
   if (state.phase !== 'ready') return null
   const { who } = state
+  const roles = showRoles ?? who.isAdmin
   return (
     <div className="rounded-lg border border-rule bg-ground/60 px-3 py-2">
       <div className="eyebrow mb-1">what the server sees</div>
       <Row label="signed in as" value={who.email || '(no address)'} />
       <Row label="email verified" value={who.emailVerified ? 'yes' : 'no'} ok={who.emailVerified} />
-      <Row label="admin" value={who.isAdmin ? 'yes' : 'no'} ok={who.isAdmin} />
-      <Row label="super admin" value={who.isSuperAdmin ? 'yes' : 'no'} ok={who.isSuperAdmin} />
-      <Row
-        label="admin list set"
-        value={who.server.adminListConfigured ? 'yes' : 'using default'}
-      />
-      <Row
-        label="authorized parties"
-        value={who.server.authorizedPartiesConfigured ? 'set' : 'not set'}
-        ok={who.server.authorizedPartiesConfigured}
-      />
+      {roles && (
+        <>
+          <Row label="admin" value={who.isAdmin ? 'yes' : 'no'} ok={who.isAdmin} />
+          <Row label="super admin" value={who.isSuperAdmin ? 'yes' : 'no'} ok={who.isSuperAdmin} />
+          {/* Present for admins only, so a refused non-admin sees the two rows
+              above — which are the ones that actually diagnose their case — and
+              nothing about how the server is configured. */}
+          {who.server && (
+            <>
+              <Row
+                label="admin list set"
+                value={who.server.adminListConfigured ? 'yes' : 'using default'}
+              />
+              <Row
+                label="authorized parties"
+                value={who.server.authorizedPartiesConfigured ? 'set' : 'not set'}
+                ok={who.server.authorizedPartiesConfigured}
+              />
+            </>
+          )}
+        </>
+      )}
     </div>
   )
 }
@@ -180,8 +206,13 @@ export function AccessNotice({
   // and simply not the address the server is configured to let through.
   return (
     <Shell title={`This account cannot open ${surface}`}>
-      <p className="text-[12px] text-muted">{who.verdict}</p>
-      <AccessFacts state={state} />
+      <p className="text-[12px] text-muted">
+        You are signed in as <span className="font-mono text-[11px]">{who.email}</span>, and that is
+        not the address this deployment admits to {surface}.
+      </p>
+      {/* You asked for this page by name, so the detail is warranted here even
+          though the account page withholds it. */}
+      <AccessFacts state={state} showRoles />
       {need === 'super' && who.isAdmin && (
         <p className="text-[11px] text-muted">
           You do have <code className="font-mono text-[11px]">/admin</code>. The two are separate on

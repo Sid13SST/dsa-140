@@ -21,7 +21,12 @@ export interface WhoAmI {
   isSuperAdmin: boolean
   sessionId: string
   tokenAgeMs: number
-  server: {
+  /**
+   * How the server itself is configured. Sent to admins only — see the note in
+   * api/whoami.ts on why a stranger does not get to learn whether the
+   * authorized-parties check is running.
+   */
+  server?: {
     adminListConfigured: boolean
     authorizedPartiesConfigured: boolean
   }
