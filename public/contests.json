@@ -1,14 +1,6 @@
 {
-  "updatedAt": "2026-09-11T18:05:04.966Z",
+  "updatedAt": "2026-09-11T22:55:22.535Z",
   "contests": [
-    {
-      "id": "cc-PLACEPREP07",
-      "name": "Placement Prep Weekends - 07",
-      "platform": "CodeChef",
-      "startsAt": 1789151425000,
-      "durationMin": 150,
-      "url": "https://www.codechef.com/PLACEPREP07"
-    },
     {
       "id": "ac-abc475",
       "name": "AtCoder Beginner Contest 475",
