@@ -1,14 +1,6 @@
 {
-  "updatedAt": "2026-09-11T07:39:54.189Z",
+  "updatedAt": "2026-09-11T13:09:35.256Z",
   "contests": [
-    {
-      "id": "ac-awc0155",
-      "name": "AtCoder Weekday Contest 0155 Beta",
-      "platform": "AtCoder",
-      "startsAt": 1789124400000,
-      "durationMin": 60,
-      "url": "https://atcoder.jp/contests/awc0155"
-    },
     {
       "id": "cc-PLACEPREP07",
       "name": "Placement Prep Weekends - 07",
@@ -56,6 +48,14 @@
       "startsAt": 1789319100000,
       "durationMin": 120,
       "url": "https://codeforces.com/contest/2264"
+    },
+    {
+      "id": "ac-awc0156",
+      "name": "AtCoder Weekday Contest 0156 Beta",
+      "platform": "AtCoder",
+      "startsAt": 1789383600000,
+      "durationMin": 60,
+      "url": "https://atcoder.jp/contests/awc0156"
     },
     {
       "id": "cc-DSAMONDAY020",
