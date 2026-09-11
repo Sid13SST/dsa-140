@@ -43,6 +43,17 @@ export interface AuthValue {
   /** Token for calling our own /api endpoints. Null when signed out. */
   getToken: () => Promise<string | null>
   refresh: () => Promise<void>
+  /**
+   * Opens Clerk's own account modal — password, email addresses, MFA, active
+   * devices. Null when auth is switched off.
+   *
+   * It goes through this wrapper rather than Account importing useClerk itself,
+   * for the same reason everything else does: Clerk's hooks throw when the
+   * provider is not mounted, and the provider is not mounted when auth is off.
+   * Routing it through here keeps that decision in the one place that already
+   * makes it, at module load.
+   */
+  openProfile: (() => void) | null
 }
 
 /** Used when auth is switched off, or no publishable key is configured. */
@@ -55,6 +66,7 @@ function useDisabledAuth(): AuthValue {
       signOut: async () => {},
       getToken: async () => null,
       refresh: async () => {},
+      openProfile: null,
     }),
     [],
   )
@@ -67,6 +79,10 @@ function useClerkBackedAuth(): AuthValue {
 
   const signOut = useCallback(async () => {
     await clerk.signOut()
+  }, [clerk])
+
+  const openProfile = useCallback(() => {
+    clerk.openUserProfile()
   }, [clerk])
 
   // Clerk keeps the user object live, so there is nothing to re-fetch. Kept in
@@ -98,8 +114,8 @@ function useClerkBackedAuth(): AuthValue {
   const status: Status = !isLoaded ? 'loading' : isSignedIn ? 'signed-in' : 'signed-out'
 
   return useMemo(
-    () => ({ status, me, error: null, signOut, getToken, refresh }),
-    [status, me, signOut, getToken, refresh],
+    () => ({ status, me, error: null, signOut, getToken, refresh, openProfile }),
+    [status, me, signOut, getToken, refresh, openProfile],
   )
 }
 

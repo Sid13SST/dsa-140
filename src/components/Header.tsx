@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { useAuth } from '../lib/auth'
 import type { Theme } from '../lib/theme'
 import { fmtDay } from '../lib/dates'
 
@@ -65,6 +67,38 @@ function Clock() {
   )
 }
 
+/**
+ * The way in to /account, and the only place the signed-in identity appears on
+ * the dashboard.
+ *
+ * Hidden entirely when accounts are switched off, because then it would link to
+ * a page about an account that does not exist. The avatar is Clerk's, and falls
+ * back to an initial when there is no image.
+ */
+function AccountButton() {
+  const { status, me } = useAuth()
+  if (status !== 'signed-in' || !me) return null
+
+  const initial = (me.fullName ?? me.email ?? '?').charAt(0).toUpperCase()
+
+  return (
+    <Link
+      to="/account"
+      title={`Account — ${me.email}`}
+      aria-label={`Account settings for ${me.email}`}
+      className="w-9 h-9 rounded-full border border-rule bg-surface overflow-hidden shrink-0
+        grid place-items-center transition-colors hover:border-brand/50
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
+    >
+      {me.avatarUrl ? (
+        <img src={me.avatarUrl} alt="" className="w-full h-full object-cover" />
+      ) : (
+        <span className="font-display text-[12px] font-bold text-brand">{initial}</span>
+      )}
+    </Link>
+  )
+}
+
 export default function Header({ dayNumber, totalDays, startsOn, theme, onToggleTheme }: Props) {
   const pct = dayNumber === null ? 0 : Math.round((dayNumber / totalDays) * 100)
 
@@ -93,6 +127,7 @@ export default function Header({ dayNumber, totalDays, startsOn, theme, onToggle
         </div>
 
         <div className="flex items-center gap-3">
+          <AccountButton />
           <ThemeToggle theme={theme} onToggle={onToggleTheme} />
           <Clock />
         </div>

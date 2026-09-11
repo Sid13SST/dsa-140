@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
+import { AccessNotice, CheckingAccount, useStalled } from '../components/AccessNotice'
+import { useAccess } from '../lib/access'
 import { apiFetch, AuthExpiredError, useAuth } from '../lib/auth'
 import { PAYMENTS_ENABLED } from '../lib/flags'
 
@@ -50,7 +52,7 @@ const STATUS_TONE: Record<AdminPayment['status'], string> = {
 const DAY_MS = 86_400_000
 
 /**
- * The super-admin surface.
+ * The operations console — accounts and payment attempts.
  *
  * Every figure comes from /api/admin, which verifies the caller's Clerk token
  * and checks their email against the server's own admin list. A non-admin
@@ -58,11 +60,18 @@ const DAY_MS = 86_400_000
  * a 403, so the response does not even confirm the surface exists.
  *
  * This component never decides anything; it draws what the server agreed to
- * send. The redirect below is a convenience so an ordinary user does not sit
- * looking at an error.
+ * send, and when the server says no it says so, in words. It used to redirect
+ * instead, which turned every possible cause into the same silent bounce to the
+ * dashboard.
  */
 export default function Admin() {
-  const { status, me, getToken } = useAuth()
+  const { status, getToken } = useAuth()
+  /*
+   * The server's own verdict, not the constant in this bundle. When the two
+   * disagree this is the one that decides, and the one that can explain why.
+   */
+  const { state: access, recheck } = useAccess()
+  const stalled = useStalled(status === 'loading', 8_000)
   const [tab, setTab] = useState<'people' | 'payments'>('people')
   const [data, setData] = useState<AdminData | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -109,29 +118,43 @@ export default function Admin() {
     [data],
   )
 
-  if (status === 'loading') return <Centered>Checking your account…</Centered>
-  if (status !== 'signed-in' || expired) return <Navigate to="/signin" replace />
-  // Belt and braces: the endpoint is the real gate, this avoids a pointless render.
-  if (me && !me.isAdmin) return <Navigate to="/app" replace />
+  if (status === 'loading') return <CheckingAccount stalled={stalled} />
+  if (status === 'signed-out' || expired) return <Navigate to="/signin" replace />
+  if (access.phase === 'loading') return <Centered>Confirming access…</Centered>
+  /*
+   * Anything short of a server "yes" gets an explanation rather than a bounce.
+   *
+   * This used to be `<Navigate to="/app">`, which meant a wrong address, an
+   * unverified email, an ADMIN_EMAILS pointing elsewhere and a deployment with
+   * no functions all looked identical: you asked for /admin and landed on the
+   * dashboard, with nothing anywhere saying why.
+   */
+  if (access.phase !== 'ready' || !access.who.isAdmin) {
+    return <AccessNotice need="admin" state={access} onRetry={recheck} />
+  }
 
   return (
     <div className="min-h-full px-4 py-6">
       <div className="max-w-6xl mx-auto space-y-3">
         <div className="flex items-baseline justify-between gap-3 flex-wrap">
           <div>
-            <span className="eyebrow">admin</span>
+            <span className="eyebrow">admin · {access.who.email}</span>
             <h1 className="font-display text-xl font-bold mt-0.5">Backend 200 — operations</h1>
           </div>
           <div className="flex items-center gap-2">
             <button className="btn text-xs" onClick={() => void load()} disabled={loading}>
               {loading ? 'Refreshing…' : 'Refresh'}
             </button>
-            {/* Only the super admin sees this, and /api/insights 404s anyone else. */}
-            {me?.isSuperAdmin && (
+            {/* Drawn from the SERVER's verdict, so the link cannot appear for
+                someone /api/insights would 404. */}
+            {access.who.isSuperAdmin && (
               <Link className="btn btn-primary text-xs" to="/super">
                 Signups &amp; insights
               </Link>
             )}
+            <Link className="btn text-xs" to="/account">
+              Account
+            </Link>
             <Link className="btn text-xs" to="/app">
               Dashboard
             </Link>

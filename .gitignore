@@ -14,3 +14,10 @@ tsconfig.tsbuildinfo
 
 # Scraped intermediates — regenerate with scripts/scrape-*.cjs
 /data/
+
+.vercel
+.env*
+
+# Local tooling scratch — not part of the app
+.tmp/
+.claude/

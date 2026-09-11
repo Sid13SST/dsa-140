@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
+import { AccessNotice, CheckingAccount, useStalled } from '../components/AccessNotice'
+import { useAccess } from '../lib/access'
 import { apiFetch, AuthExpiredError, useAuth } from '../lib/auth'
-import { AUTH_ENABLED } from '../lib/flags'
 
 /**
  * The super-admin dashboard.
@@ -74,7 +75,9 @@ const ago = (iso: string | null) => {
 }
 
 export default function SuperAdmin() {
-  const { status, me, getToken } = useAuth()
+  const { status, getToken } = useAuth()
+  const { state: access, recheck } = useAccess()
+  const stalled = useStalled(status === 'loading', 8_000)
   const [tab, setTab] = useState<Tab>('signups')
   const [data, setData] = useState<Insights | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -113,11 +116,15 @@ export default function SuperAdmin() {
     )
   }, [data, query])
 
-  if (!AUTH_ENABLED) return <Navigate to="/app" replace />
-  if (status === 'loading') return <Centered>Checking your account…</Centered>
-  if (status !== 'signed-in' || expired) return <Navigate to="/signin" replace />
-  // The endpoint is the real gate. This only avoids drawing a page that will 404.
-  if (me && !me.isSuperAdmin) return <Navigate to="/app" replace />
+  if (status === 'loading') return <CheckingAccount stalled={stalled} />
+  if (status === 'signed-out' || expired) return <Navigate to="/signin" replace />
+  if (access.phase === 'loading') return <Centered>Confirming access…</Centered>
+  // /api/insights is the real gate and answers 404 to everyone else. This only
+  // avoids drawing a page that will 404 — and, unlike the redirect it replaced,
+  // it says which of the several possible reasons applies.
+  if (access.phase !== 'ready' || !access.who.isSuperAdmin) {
+    return <AccessNotice need="super" state={access} onRetry={recheck} />
+  }
 
   const t = data?.totals
 
@@ -126,7 +133,7 @@ export default function SuperAdmin() {
       <div className="max-w-6xl mx-auto space-y-3">
         <div className="flex items-baseline justify-between gap-3 flex-wrap">
           <div>
-            <span className="eyebrow">super admin · {me?.email}</span>
+            <span className="eyebrow">super admin · {access.who.email}</span>
             <h1 className="font-display text-xl font-bold mt-0.5">Signups &amp; insights</h1>
           </div>
           <div className="flex items-center gap-2">
@@ -135,6 +142,9 @@ export default function SuperAdmin() {
             </button>
             <Link className="btn text-xs" to="/admin">
               Operations
+            </Link>
+            <Link className="btn text-xs" to="/account">
+              Account
             </Link>
             <Link className="btn text-xs" to="/app">
               Dashboard
