@@ -1,22 +1,6 @@
 {
-  "updatedAt": "2026-09-12T12:33:57.177Z",
+  "updatedAt": "2026-09-12T17:37:17.367Z",
   "contests": [
-    {
-      "id": "cf-2262",
-      "name": "Codeforces Round 1120 (Div. 1)",
-      "platform": "Codeforces",
-      "startsAt": 1789223700000,
-      "durationMin": 180,
-      "url": "https://codeforces.com/contest/2262"
-    },
-    {
-      "id": "cf-2263",
-      "name": "Codeforces Round 1120 (Div. 2)",
-      "platform": "Codeforces",
-      "startsAt": 1789223700000,
-      "durationMin": 180,
-      "url": "https://codeforces.com/contest/2263"
-    },
     {
       "id": "ac-ahc071",
       "name": "AtCoder Heuristic Contest 071",
