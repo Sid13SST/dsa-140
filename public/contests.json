@@ -1,14 +1,6 @@
 {
-  "updatedAt": "2026-09-12T07:34:05.204Z",
+  "updatedAt": "2026-09-12T12:33:57.177Z",
   "contests": [
-    {
-      "id": "ac-abc475",
-      "name": "AtCoder Beginner Contest 475",
-      "platform": "AtCoder",
-      "startsAt": 1789214400000,
-      "durationMin": 100,
-      "url": "https://atcoder.jp/contests/abc475"
-    },
     {
       "id": "cf-2262",
       "name": "Codeforces Round 1120 (Div. 1)",
