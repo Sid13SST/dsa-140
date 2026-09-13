@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-09-13T02:35:47.971Z",
+  "updatedAt": "2026-09-13T07:53:44.877Z",
   "contests": [
     {
       "id": "ac-ahc071",
@@ -96,6 +96,14 @@
       "startsAt": 1791028800000,
       "durationMin": 100,
       "url": "https://atcoder.jp/contests/abc478"
+    },
+    {
+      "id": "ac-arc231",
+      "name": "AtCoder Regular Contest 231",
+      "platform": "AtCoder",
+      "startsAt": 1791115200000,
+      "durationMin": 120,
+      "url": "https://atcoder.jp/contests/arc231"
     },
     {
       "id": "ac-arc232",
