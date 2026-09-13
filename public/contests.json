@@ -1,14 +1,6 @@
 {
-  "updatedAt": "2026-09-13T13:34:46.550Z",
+  "updatedAt": "2026-09-13T17:49:42.760Z",
   "contests": [
-    {
-      "id": "cf-2264",
-      "name": "Codeforces Round 1121 (Div. 2)",
-      "platform": "Codeforces",
-      "startsAt": 1789319100000,
-      "durationMin": 120,
-      "url": "https://codeforces.com/contest/2264"
-    },
     {
       "id": "ac-awc0156",
       "name": "AtCoder Weekday Contest 0156 Beta",
