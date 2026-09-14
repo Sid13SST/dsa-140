@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-09-14T15:33:21.991Z",
+  "updatedAt": "2026-09-14T21:17:16.133Z",
   "contests": [
     {
       "id": "ac-awc0157",
@@ -32,6 +32,14 @@
       "startsAt": 1789905600000,
       "durationMin": 150,
       "url": "https://atcoder.jp/contests/arc230"
+    },
+    {
+      "id": "cf-2266",
+      "name": "Codeforces Round (Div. 3)",
+      "platform": "Codeforces",
+      "startsAt": 1790001300000,
+      "durationMin": 150,
+      "url": "https://codeforces.com/contest/2266"
     },
     {
       "id": "cc-START257",
